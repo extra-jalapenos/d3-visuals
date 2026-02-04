@@ -6,6 +6,12 @@
 	<title>Audit Duedates</title>
 	<link rel="stylesheet" href="base.css">
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+	<style>
+		html, body {
+			margin: 0;
+			padding: 0;
+		}
+	</style>
 </head>
 <body>
 <script type="module">
@@ -86,8 +92,8 @@
 		const differenceInDays = processTime()
 		const calculateProcessTimeCategory = () => {
 			if (differenceInDays === null || differenceInDays < 0) return "unknown"
-			if (differenceInDays > 8*7) return "> 8 Wochen"
-			const timeBordersInWeeks = [ 1, 2, 3, 4, 5, 6, 7, 8 ]
+			if (differenceInDays > 16*7) return "> 16 Wochen"
+			const timeBordersInWeeks = [ 1, 2, 3, 4, 6, 8, 12, 16 ]
 			const numWeeks = timeBordersInWeeks.findLast(weekNum => weekNum *7 <= differenceInDays)
 			if (!numWeeks) return "unknown"
 			return `${numWeeks} Woche${numWeeks >= 1 ? "n" : ""}`
@@ -159,7 +165,7 @@
 		const groupedByMonths = d3.group(dataBatch, d => d.audit?.toLocaleDateString(undefined, { month: "short" }))
 
 		const orderOfGroups = [
-			"1 Woche",	"2 Wochen",	"3 Wochen",	"4 Wochen",	"5 Wochen",	"6 Wochen",	"7 Wochen",	"8 Wochen",	">8 Wochen"
+			"1 Woche",	"2 Wochen",	"3 Wochen",	"4 Wochen",	"5 Wochen",	"6 Wochen",	"7 Wochen",	"8 Wochen",	"> 16 Wochen"
 		]
 		const colorScale = d3.scaleOrdinal([...orderOfGroups].reverse(), d3.schemeRdYlBu[9])
 
