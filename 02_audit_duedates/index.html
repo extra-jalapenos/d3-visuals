@@ -108,7 +108,8 @@
 	const auditDateRange = d3.extent(auditEvaluationMap.values(), d => d.audit)
 	const months = d3.timeMonth.every(1).range(...auditDateRange)
 
-	const grouped = d3.group(Array.from(auditEvaluationMap.values()), d => d.audit?.getFullYear(), d => d.category, d => d.processTimeGroup)
+	const grouped = d3.group(Array.from(auditEvaluationMap.values()),
+		d => d.audit?.getFullYear())
 
 	const plotHeight = height / 3
 	const margins = { top: 10, bottom: 30, left: 50, right: 20 }
@@ -153,9 +154,43 @@
 
 		xAxis.call(d3.axisBottom(xScale))
 		yAxis.call(d3.axisLeft(yScale))
+
+		const colorScale = d3.scaleSequential(d3.interpolateRdYlBu).domain([8*7, 0])
+
+		const groupedByMonths = d3.group(dataBatch, d => d.audit?.toLocaleDateString(undefined, { month: "short" }))
+
+		const orderOfGroups = [
+			"1 Woche",
+			"2 Wochen",
+			"3 Wochen",
+			"4 Wochen",
+			"5 Wochen",
+			"6 Wochen",
+			"7 Wochen",
+			"8 Wochen",
+			">8 Wochen"
+		]
+
+		for (const monthGroup of groupedByMonths) {
+			const [month, data] = monthGroup
+			const summed = d3.rollup(data, D => D.length, d => d.processTimeGroup)
+
+			const currentState = { start: 0, end: 0 }
+			const valueArray = []
+			orderOfGroups.forEach(groupName => {
+				if (summed.has(groupName)) {
+					const value = summed.get(groupName)
+					currentState.end += value
+					valueArray.push({ group: groupName, value, ...currentState, monthName: month })
+					currentState.start += value
+				}
+			})
+			groupedByMonths.set(month, valueArray)
+		}
+
+		console.log(Array.from(groupedByMonths.values()).flat())
 	})
 
-	console.log(grouped)
 </script>
 </body>
 </html>
