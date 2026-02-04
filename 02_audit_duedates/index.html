@@ -41,7 +41,7 @@
 	const auditFactMap = d3.index(auditFactData, d => d.auditId)
 	// only keep awsv / vaws and specific steps
 	const worklogDataFiltered = worklogDataRaw
-		.filter(d => d.auditId.includes("_awsv") || d.auditId.includes("_vaws"))
+		.filter(d => d.auditId.includes("_awsv") || d.auditId.includes("_vaws") || d.auditId.includes("_betrSichV"))
 		.filter(d => ["Termin", "Freigabe", "Versand"].includes(d.workstep))
 		.map(d => {
 			const [day, month, year] = d.doneAt.split(" ")[0].split(".")
@@ -147,19 +147,21 @@
 		const monthStartArray = d3.timeMonth.every(1).range(...calendarYear)
 		.map(date => date.toLocaleDateString(undefined, { month: "short" }))
 		const xScale = d3.scaleBand(monthStartArray, [0, width - margins.left - margins.right])
-		xScale.paddingOuter(0.1)
+		xScale.padding(0.1)
 
-		const yScale = d3.scaleLinear().domain([0, 100]).range([plotHeight - margins.top - margins.bottom, 0])
+
+		const yScale = d3.scaleLinear().domain([50, 0]).range([0, plotHeight - margins.bottom - margins.top])
+
 		xAxis.call(d3.axisBottom(xScale))
 		yAxis.call(d3.axisLeft(yScale))
 
-		const colorScale = d3.scaleSequential(d3.interpolateRdYlBu).domain([8*7, 0])
 
 		const groupedByMonths = d3.group(dataBatch, d => d.audit?.toLocaleDateString(undefined, { month: "short" }))
 
 		const orderOfGroups = [
 			"1 Woche",	"2 Wochen",	"3 Wochen",	"4 Wochen",	"5 Wochen",	"6 Wochen",	"7 Wochen",	"8 Wochen",	">8 Wochen"
 		]
+		const colorScale = d3.scaleOrdinal([...orderOfGroups].reverse(), d3.schemeRdYlBu[9])
 
 		for (const monthGroup of groupedByMonths) {
 			const [month, data] = monthGroup
@@ -187,17 +189,19 @@
 			.append("g")
 			.attr("class", d => d[0])
 
+		console.log(yScale(0))
 		group.each(function (serie) {
 			d3.select(this)
 				.selectAll("rect")
 				.data(serie[1])
 				.enter()
 				.append("rect")
-				.attr("fill", "red")
+				.attr("fill", colorScale(serie[0]))
+				.attr("value", d => d[1].value)
 				.attr("x", d => xScale(d[0]))
-				.attr("y", d => yScale(d[1].start))
+				.attr("y", d => yScale(d[1].end))
 				.attr("width", d => xScale.bandwidth())
-				.attr("height", yScale(d[1].value))
+				.attr("height", d => yScale(d[1].start) - yScale(d[1].end))
 		})
 	})
 
