@@ -41,7 +41,10 @@
 
 	const worklogDataRaw = await d3.tsv("./worklogs.txt")
 	const auditDataRaw = await d3.tsv("./audits.txt")
-
+	const stepsRaw = await d3.tsv("../01_status_burndown/steps.tsv")
+	const steps = d3.index(stepsRaw.map(d => {
+		return { ...d, id: Number(d.id), stageId: Number(d.stageId), Punkte: parseFloat(d.Punkte) }
+	}), d => d.stepName)
 	// only keep awsv / vaws and specific steps
 	const worklogDataFiltered = worklogDataRaw
 		.filter(d => d.auditId.includes("_awsv") || d.auditId.includes("_vaws"))
