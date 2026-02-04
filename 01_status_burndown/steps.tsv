@@ -1,16 +1,16 @@
 id	stepName	stageName	stageId	Punkte
 0	Beginn	Unbegonnen	0	0
-1	VB I	Vorbereitung	1	10,00
-2	Tourenplanung	Vorbereitung	1	5,00
-3	VB II	Vorbereitung	1	20,00
-4	Termin	Termin	2	45,00
-5	NB I	Nachbereitung	3	20,00
-6	NB II	Nachbereitung	3	5,00
-7	NB II.2	Nachbereitung	3	1,00
-8	NB II.3	Nachbereitung	3	1,00
-9	Fertigstellung	Berichtserstellung	4	30,00
-10	Prüfung	Berichtsprüfung	5	15,00
-11	Freigabe	Berichtsfreigabe	6	5,00
-12	Versand	Abschluss	7	10,00
-13	Rechnung	Abschluss	7	5,00
-14	Zahlung	Fertig	8	0,10
+1	VB I	Vorbereitung	1	10.00
+2	Tourenplanung	Vorbereitung	1	5.00
+3	VB II	Vorbereitung	1	20.00
+4	Termin	Termin	2	45.00
+5	NB I	Nachbereitung	3	20.00
+6	NB II	Nachbereitung	3	5.00
+7	NB II.2	Nachbereitung	3	1.00
+8	NB II.3	Nachbereitung	3	1.00
+9	Fertigstellung	Berichtserstellung	4	30.00
+10	Prüfung	Berichtsprüfung	5	15.00
+11	Freigabe	Berichtsfreigabe	6	5.00
+12	Versand	Abschluss	7	10.00
+13	Rechnung	Abschluss	7	5.00
+14	Zahlung	Fertig	8	0.10
