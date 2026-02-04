@@ -64,6 +64,7 @@
 			const [year, month, day] = d.doneAt.split(" ")[0].split(".")
 			return {
 				...d,
+				workstep: steps.get(d.workstep),
 				doneAt: new Date(year, month-1, day)
 			}
 		})
