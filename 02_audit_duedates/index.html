@@ -9,35 +9,17 @@
 </head>
 <body>
 <script type="module">
+	// for FULL view!
 	const width = document.documentElement.clientWidth
 	const height = document.documentElement.clientHeight
 
-	const svg = d3.select("body")
-		.append("svg")
+	const body = d3.select("body")
+		// .append("svg")
 		.attr("width", width)
 		.attr("height", height)
 		.attr("viewBox", `0, 0, ${width}, ${height}`)
 		.attr("preserveAspectRatio", "none")
 
-	const margins = { top: 10, bottom: 30, left: 50, right: 20 }
-
-	const canvas = svg
-		.append("g")
-		.attr("class", "canvas")
-		.attr("width", width - margins.left - margins.right)
-		.attr("height", height - margins.top - margins.bottom)
-		.attr("transform", `translate(${margins.left}, ${margins.top})`)
-
-	const axesGroup = svg.append("g")
-		.attr("class", "axes")
-
-	const xAxis = axesGroup.append("g")
-		.attr("class", "x axis")
-		.attr("transform", `translate(${margins.left}, ${height - margins.bottom})`)
-
-	const yAxis = axesGroup.append("g")
-		.attr("class", "y axis")
-		.attr("transform", `translate(${margins.left}, ${margins.top})`)
 
 	const worklogDataRaw = await d3.tsv("./worklogs.txt")
 	const auditDataRaw = await d3.tsv("./audits.txt")
@@ -71,6 +53,8 @@
 			}
 		})
 
+	const rangeOfAudits = d3.extent(worklogDataFiltered.filter(d => d.workstep.stepName === "Termin"), d => d.doneAt)
+
 	// create a map by audit
 	const auditEvaluationMap = d3.group(worklogDataFiltered, d => d.auditId)
 
@@ -103,11 +87,12 @@
 		const differenceInDays = processTime()
 		const calculateProcessTimeCategory = () => {
 			if (differenceInDays === null || differenceInDays < 0) return "unknown"
+			if (differenceInDays > 8*7) return "> 8 Wochen"
 			const timeBordersInWeeks = [ 1, 2, 3, 4, 5, 6, 7, 8 ]
 			const numWeeks = timeBordersInWeeks.findLast(weekNum => weekNum *7 <= differenceInDays)
+			if (!numWeeks) return "unknown"
 			return `${numWeeks} Woche${numWeeks >= 1 ? "n" : ""}`
 		}
-		calculateProcessTimeCategory()
 
 		auditEvaluationMap.set(auditId, {
 			progress: auditFacts.progress,
@@ -117,9 +102,60 @@
 			audit: rollupMap.get("Termin"),
 			dueDate: auditFacts.dueDate
 		})
+
 	}
 
-	console.log(auditEvaluationMap)
+	const auditDateRange = d3.extent(auditEvaluationMap.values(), d => d.audit)
+	const months = d3.timeMonth.every(1).range(...auditDateRange)
+
+	const grouped = d3.group(Array.from(auditEvaluationMap.values()), d => d.audit?.getFullYear(), d => d.category, d => d.processTimeGroup)
+
+	const plotHeight = height / 3
+	const margins = { top: 10, bottom: 30, left: 50, right: 20 }
+	const yearPlots = d3.select("body").selectAll("svg")
+		.data(grouped)
+		.enter()
+		.append("svg")
+		.attr("height", plotHeight)
+		.attr("width", width)
+		.attr("class", "plot")
+		.attr("id", d => d[0])
+
+	yearPlots.each(function (datum) {
+		const currentGroup = d3.select(this)
+		currentGroup
+			.append("g")
+			.attr("class", "canvas")
+			.attr("width", width - margins.left - margins.right)
+			.attr("height", plotHeight - margins.bottom - margins.top)
+			.attr("transform", `translate(${margins.left}, ${margins.top})`)
+
+		const axesGroup = currentGroup.append("g")
+			.attr("class", "axes")
+			.attr("height", plotHeight - margins.bottom - margins.top)
+
+		const xAxis = axesGroup.append("g")
+			.attr("class", "x axis")
+			.attr("transform", `translate(${margins.left}, ${plotHeight - margins.bottom})`)
+
+		const yAxis = axesGroup.append("g")
+			.attr("class", "y axis")
+			.attr("transform", `translate(${margins.left}, ${margins.top})`)
+
+		const [refYear, dataBatch] = datum
+		const calendarYear = [new Date(refYear, 0, 1), new Date(refYear, 11, 31)]
+		const monthStartArray = d3.timeMonth.every(1).range(...calendarYear)
+		.map(date => date.toLocaleDateString(undefined, { month: "short" }))
+		const xScale = d3.scaleBand(monthStartArray, [0, width - margins.left - margins.right])
+		xScale.paddingOuter(0.1)
+
+		const yScale = d3.scaleLinear([0, 100], [plotHeight - margins.top - margins.bottom, 0])
+
+		xAxis.call(d3.axisBottom(xScale))
+		yAxis.call(d3.axisLeft(yScale))
+	})
+
+	console.log(grouped)
 </script>
 </body>
 </html>
