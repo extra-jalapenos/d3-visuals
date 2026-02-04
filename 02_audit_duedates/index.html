@@ -39,6 +39,32 @@
 		.attr("class", "y axis")
 		.attr("transform", `translate(${margins.left}, ${margins.top})`)
 
+	const worklogDataRaw = await d3.tsv("./worklogs.txt")
+	const auditDataRaw = await d3.tsv("./audits.txt")
+
+	// only keep awsv / vaws and specific steps
+	const worklogDataFiltered = worklogDataRaw
+		.filter(d => d.auditId.includes("_awsv") || d.auditId.includes("_vaws"))
+		.filter(d => ["Termin", "Freigabe", "Versand"].includes(d.workstep))
+		.map(d => {
+			const [year, month, day] = d.doneAt.split(" ")[0].split(".")
+			return {
+				...d,
+				doneAt: new Date(year, month-1, day)
+			}
+		})
+
+	// create a map by audit
+	const auditMap = d3.group(worklogDataFiltered, d => d.auditId)
+
+	// for each map process the content so we get { "done": true, "daysBetweenAudit": 23, "auditDate": Date, "auditor": Name }
+	for (const auditGroup of auditMap) {
+		const [auditId, data] = auditGroup
+		const rollupMap = d3.rollup(data, D => d3.min(D.map(d => d.doneAt)), d => d.workstep)
+		auditMap.set(auditId, rollupMap)
+	}
+
+	console.log(auditMap)
 </script>
 </body>
 </html>
