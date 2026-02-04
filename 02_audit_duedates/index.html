@@ -45,23 +45,25 @@
 	const steps = d3.index(stepsRaw.map(d => {
 		return { ...d, id: Number(d.id), stageId: Number(d.stageId), Punkte: parseFloat(d.Punkte) }
 	}), d => d.stepName)
+	// because my data is so old i'm gonna pretend that "TODAY" is the 10th of Feb 2024
+	const today = new Date(2024, 1, 10)
 
-	const auditData = auditDataRaw.map(d => {
-			const [year, month, day] = d.dueDateAudit.split(" ")[0].split(".")
+	const auditFactData = auditDataRaw.map(d => {
+			const [day, month, year] = d.dueDateAudit.split(" ")[0].split(".")
 			return {
 				auditId: d.auditId,
 				progress: steps.get(d.progressLabel),
-				dueDateAudit: new Date(year, month-1, day)
+				dueDate: new Date(year, month-1, day)
 			}
 		})
 
-	const auditDataMap = d3.index(auditData, d => d.auditId)
+	const auditFactMap = d3.index(auditFactData, d => d.auditId)
 	// only keep awsv / vaws and specific steps
 	const worklogDataFiltered = worklogDataRaw
 		.filter(d => d.auditId.includes("_awsv") || d.auditId.includes("_vaws"))
 		.filter(d => ["Termin", "Freigabe", "Versand"].includes(d.workstep))
 		.map(d => {
-			const [year, month, day] = d.doneAt.split(" ")[0].split(".")
+			const [day, month, year] = d.doneAt.split(" ")[0].split(".")
 			return {
 				...d,
 				workstep: steps.get(d.workstep),
@@ -70,16 +72,54 @@
 		})
 
 	// create a map by audit
-	const auditMap = d3.group(worklogDataFiltered, d => d.auditId)
+	const auditEvaluationMap = d3.group(worklogDataFiltered, d => d.auditId)
 
 	// for each map process the content so we get { "done": true, "daysBetweenAudit": 23, "auditDate": Date, "auditor": Name }
-	for (const auditGroup of auditMap) {
-		const [auditId, data] = auditGroup
-		const rollupMap = d3.rollup(data, D => d3.min(D.map(d => d.doneAt)), d => d.workstep)
-		auditMap.set(auditId, rollupMap)
+	for (const audit of auditEvaluationMap) {
+		const [auditId, data] = audit
+		const rollupMap = d3.rollup(data, D => d3.min(D.map(d => d.doneAt)), d => d.workstep.stepName)
+		// due date etc. lookup:
+		const auditFacts = auditFactMap.get(auditId)
+		// as long as progress is above 11 done is true
+		const status = auditFacts.progress
+		const category = () => {
+			if (!rollupMap.get("Termin")) return "To Do"
+			if (!rollupMap.get("Versand")) return "Finalized"
+			return "Done"
+		}
+
+		const processTime = () => {
+			const start = rollupMap.get("Termin")
+			// if we don't know the sendoff date we'll settle for finalization
+			const end = rollupMap.get("Versand") || rollupMap.get("Freigabe") || today
+			if (!start) return null
+			const differenceInDays = (
+				Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate())
+				- Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate())
+			) / (1000 * 86400)
+			return differenceInDays
+		}
+
+		const differenceInDays = processTime()
+		const calculateProcessTimeCategory = () => {
+			if (differenceInDays === null || differenceInDays < 0) return "unknown"
+			const timeBordersInWeeks = [ 1, 2, 3, 4, 5, 6, 7, 8 ]
+			const numWeeks = timeBordersInWeeks.findLast(weekNum => weekNum *7 <= differenceInDays)
+			return `${numWeeks} Woche${numWeeks >= 1 ? "n" : ""}`
+		}
+		calculateProcessTimeCategory()
+
+		auditEvaluationMap.set(auditId, {
+			progress: auditFacts.progress,
+			category: category(),
+			differenceInDays,
+			processTimeGroup: calculateProcessTimeCategory(),
+			audit: rollupMap.get("Termin"),
+			dueDate: auditFacts.dueDate
+		})
 	}
 
-	console.log(auditMap)
+	console.log(auditEvaluationMap)
 </script>
 </body>
 </html>
