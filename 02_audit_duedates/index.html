@@ -45,6 +45,17 @@
 	const steps = d3.index(stepsRaw.map(d => {
 		return { ...d, id: Number(d.id), stageId: Number(d.stageId), Punkte: parseFloat(d.Punkte) }
 	}), d => d.stepName)
+
+	const auditData = auditDataRaw.map(d => {
+			const [year, month, day] = d.dueDateAudit.split(" ")[0].split(".")
+			return {
+				auditId: d.auditId,
+				progress: steps.get(d.progressLabel),
+				dueDateAudit: new Date(year, month-1, day)
+			}
+		})
+
+	const auditDataMap = d3.index(auditData, d => d.auditId)
 	// only keep awsv / vaws and specific steps
 	const worklogDataFiltered = worklogDataRaw
 		.filter(d => d.auditId.includes("_awsv") || d.auditId.includes("_vaws"))
