@@ -20,7 +20,6 @@
 		.attr("viewBox", `0, 0, ${width}, ${height}`)
 		.attr("preserveAspectRatio", "none")
 
-
 	const worklogDataRaw = await d3.tsv("./worklogs.txt")
 	const auditDataRaw = await d3.tsv("./audits.txt")
 	const stepsRaw = await d3.tsv("../01_status_burndown/steps.tsv")
@@ -124,7 +123,7 @@
 
 	yearPlots.each(function (datum) {
 		const currentGroup = d3.select(this)
-		currentGroup
+		const canvas = currentGroup
 			.append("g")
 			.attr("class", "canvas")
 			.attr("width", width - margins.left - margins.right)
@@ -150,8 +149,7 @@
 		const xScale = d3.scaleBand(monthStartArray, [0, width - margins.left - margins.right])
 		xScale.paddingOuter(0.1)
 
-		const yScale = d3.scaleLinear([0, 100], [plotHeight - margins.top - margins.bottom, 0])
-
+		const yScale = d3.scaleLinear().domain([0, 100]).range([plotHeight - margins.top - margins.bottom, 0])
 		xAxis.call(d3.axisBottom(xScale))
 		yAxis.call(d3.axisLeft(yScale))
 
@@ -160,15 +158,7 @@
 		const groupedByMonths = d3.group(dataBatch, d => d.audit?.toLocaleDateString(undefined, { month: "short" }))
 
 		const orderOfGroups = [
-			"1 Woche",
-			"2 Wochen",
-			"3 Wochen",
-			"4 Wochen",
-			"5 Wochen",
-			"6 Wochen",
-			"7 Wochen",
-			"8 Wochen",
-			">8 Wochen"
+			"1 Woche",	"2 Wochen",	"3 Wochen",	"4 Wochen",	"5 Wochen",	"6 Wochen",	"7 Wochen",	"8 Wochen",	">8 Wochen"
 		]
 
 		for (const monthGroup of groupedByMonths) {
@@ -188,7 +178,27 @@
 			groupedByMonths.set(month, valueArray)
 		}
 
-		console.log(Array.from(groupedByMonths.values()).flat())
+		const flatArray = Array.from(groupedByMonths.values()).flat()
+		// ok now let's do the series
+		const series = d3.index(flatArray, d => d.group, d => d.monthName)
+		const group = canvas.selectAll("g")
+			.data(series)
+			.enter()
+			.append("g")
+			.attr("class", d => d[0])
+
+		group.each(function (serie) {
+			d3.select(this)
+				.selectAll("rect")
+				.data(serie[1])
+				.enter()
+				.append("rect")
+				.attr("fill", "red")
+				.attr("x", d => xScale(d[0]))
+				.attr("y", d => yScale(d[1].start))
+				.attr("width", d => xScale.bandwidth())
+				.attr("height", yScale(d[1].value))
+		})
 	})
 
 </script>
