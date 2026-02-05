@@ -10,7 +10,27 @@
 		html, body {
 			margin: 0;
 			padding: 0;
+			color-scheme: light dark;
+			fill: light-dark(#c6c4c4, rgb(40, 40, 40));
 		}
+
+		.done {
+			opacity: 1;
+		}
+
+		.finalized {
+			opacity: 0.75;
+		}
+
+		.to-do {
+			opacity: 0.5;
+		}
+
+		text {
+			font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+			fill: light-dark(black, white);;
+		}
+
 	</style>
 </head>
 <body>
@@ -72,9 +92,9 @@
 		// as long as progress is above 11 done is true
 		const status = auditFacts.progress
 		const category = () => {
-			if (!rollupMap.get("Termin")) return "To Do"
-			if (!rollupMap.get("Versand")) return "Finalized"
-			return "Done"
+			if (!rollupMap.get("Termin")) return "to do"
+			if (!rollupMap.get("Versand")) return "finalized"
+			return "done"
 		}
 
 		const processTime = () => {
@@ -119,7 +139,7 @@
 	const plotHeight = height / 3
 	const margins = { top: 10, bottom: 30, left: 50, right: 20 }
 	const yearPlots = d3.select("body").selectAll("svg")
-		.data(grouped)
+		.data([2024, 2023, 2022, 2021])
 		.enter()
 		.append("svg")
 		.attr("height", plotHeight)
@@ -127,14 +147,23 @@
 		.attr("class", "plot")
 		.attr("id", d => d[0])
 
-	yearPlots.each(function (datum) {
+	yearPlots.each(function (year) {
+		const datum = grouped.get(year)
 		const currentGroup = d3.select(this)
+
 		const canvas = currentGroup
 			.append("g")
 			.attr("class", "canvas")
 			.attr("width", width - margins.left - margins.right)
 			.attr("height", plotHeight - margins.bottom - margins.top)
 			.attr("transform", `translate(${margins.left}, ${margins.top})`)
+
+		currentGroup
+			.append("text")
+			.text("Audits mit erstem Termin in Kalenderjahr " + year)
+			.attr("x", margins.left + 20)
+			.attr("y", margins.top + 10)
+			.attr("text-anchor", "start")
 
 		const axesGroup = currentGroup.append("g")
 			.attr("class", "axes")
@@ -148,8 +177,7 @@
 			.attr("class", "y axis")
 			.attr("transform", `translate(${margins.left}, ${margins.top})`)
 
-		const [refYear, dataBatch] = datum
-		const calendarYear = [new Date(refYear, 0, 1), new Date(refYear, 11, 31)]
+		const calendarYear = [new Date(year, 0, 1), new Date(year, 11, 31)]
 		const monthStartArray = d3.timeMonth.every(1).range(...calendarYear)
 		.map(date => date.toLocaleDateString(undefined, { month: "short" }))
 		const xScale = d3.scaleBand(monthStartArray, [0, width - margins.left - margins.right])
@@ -162,7 +190,7 @@
 		yAxis.call(d3.axisLeft(yScale))
 
 
-		const groupedByMonths = d3.group(dataBatch, d => d.audit?.toLocaleDateString(undefined, { month: "short" }))
+		const groupedByMonths = d3.group(datum, d => d.audit?.toLocaleDateString(undefined, { month: "short" }))
 
 		const orderOfGroups = [
 			"1 Woche",	"2 Wochen",	"3 Wochen",	"4 Wochen",	"5 Wochen",	"6 Wochen",	"7 Wochen",	"8 Wochen",	"> 16 Wochen"
@@ -171,44 +199,48 @@
 
 		for (const monthGroup of groupedByMonths) {
 			const [month, data] = monthGroup
-			const summed = d3.rollup(data, D => D.length, d => d.processTimeGroup)
-
+			const summed = d3.rollup(data, D => D.length, d => d.processTimeGroup, d => d.category)
 			const currentState = { start: 0, end: 0 }
 			const valueArray = []
 			orderOfGroups.forEach(groupName => {
 				if (summed.has(groupName)) {
-					const value = summed.get(groupName)
-					currentState.end += value
-					valueArray.push({ group: groupName, value, ...currentState, monthName: month })
-					currentState.start += value
+					for (const category of ["done", "finalized", "to do"]) {
+						const group = summed.get(groupName)
+
+						if (group.has(category)) {
+							const value = group.get(category)
+							currentState.end += value
+							valueArray.push({ group: groupName, value, ...currentState, monthName: month, category })
+							currentState.start += value
+						}
+					}
 				}
 			})
+
 			groupedByMonths.set(month, valueArray)
 		}
 
 		const flatArray = Array.from(groupedByMonths.values()).flat()
 		// ok now let's do the series
-		const series = d3.index(flatArray, d => d.group, d => d.monthName)
-		const group = canvas.selectAll("g")
+		const series = d3.group(flatArray, d => d.group)
+		const categoryGroups = canvas.selectAll("g")
 			.data(series)
 			.enter()
 			.append("g")
-			.attr("class", d => d[0])
+			.attr("class", D => D[0])
 
-		console.log(yScale(0))
-		group.each(function (serie) {
-			d3.select(this)
+		const rectangles  = categoryGroups
 				.selectAll("rect")
-				.data(serie[1])
+				.data(D => D[1])
 				.enter()
 				.append("rect")
-				.attr("fill", colorScale(serie[0]))
-				.attr("value", d => d[1].value)
-				.attr("x", d => xScale(d[0]))
-				.attr("y", d => yScale(d[1].end))
+				.attr("class", d => d.category)
+				.attr("fill", d => colorScale(d.group))
+				.attr("value", d => d.value)
+				.attr("x", d => xScale(d.monthName))
+				.attr("y", d => yScale(d.end))
 				.attr("width", d => xScale.bandwidth())
-				.attr("height", d => yScale(d[1].start) - yScale(d[1].end))
-		})
+				.attr("height", d => yScale(d.start) - yScale(d.end))
 	})
 
 </script>
