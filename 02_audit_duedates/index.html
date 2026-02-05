@@ -137,21 +137,49 @@
 	const auditDateRange = d3.extent(auditEvaluationMap.values(), d => d.audit)
 	const months = d3.timeMonth.every(1).range(...auditDateRange)
 
-	const grouped = d3.group(Array.from(auditEvaluationMap.values()),
+	const groupedByYear = d3.group(Array.from(auditEvaluationMap.values()),
 		d => d.audit?.getFullYear())
 
 	const orderOfGroups = [
 		"1 Woche",	"2 Wochen",	"3 Wochen",	"4 Wochen",	"5 Wochen",	"6 Wochen",	"7 Wochen",	"8 Wochen",	"> 16 Wochen"
 	]
+
+	for (const yearGroup of groupedByYear) {
+		const [year, yearData] = yearGroup
+		const groupedByMonths = d3.group(yearData, d => d.audit?.toLocaleDateString(undefined, { month: "short" }))
+		for (const monthGroup of groupedByMonths) {
+			const [month, data] = monthGroup
+			const summed = d3.rollup(data, D => D.length, d => d.processTimeGroup, d => d.category)
+			const currentState = { start: 0, end: 0 }
+			const valueArray = []
+			orderOfGroups.forEach(groupName => {
+				if (summed.has(groupName)) {
+					for (const category of ["done", "finalized", "to do"]) {
+						const group = summed.get(groupName)
+
+						if (group.has(category)) {
+							const value = group.get(category)
+							currentState.end += value
+							valueArray.push({ group: groupName, value, ...currentState, monthName: month, category })
+							currentState.start += value
+						}
+					}
+				}
+			})
+			groupedByMonths.set(month, valueArray)
+		}
+		groupedByYear.set(year, groupedByMonths)
+	}
+
 	const colorScale = d3.scaleOrdinal([...orderOfGroups].reverse(), d3.schemeRdYlBu[9])
 
 	const margins = { top: 20, bottom: 30, left: 50, right: 20 }
 	const legend = d3.select("body")
 		.append("svg")
 		.attr("id", "legend")
-		.attr("transform", `translate(${width - 80*orderOfGroups.length - margins.right}, 10)`)
+		.attr("transform", `translate(${width - 80 * orderOfGroups.length - margins.right}, 10)`)
 		.attr("fill", "white")
-		.attr("width", 80*orderOfGroups.length)
+		.attr("width", 80 * orderOfGroups.length)
 		.attr("height", 40)
 
 	const legendItemContainers = legend
@@ -179,29 +207,34 @@
 		.append("text")
 		.text("semitransparente Flächen sind Berichte, die zwar freigegeben, aber noch nicht versandt sind")
 		.attr("y", 25)
-		.attr("x", 80*orderOfGroups.length)
+		.attr("x", 80 * orderOfGroups.length)
 		.attr("opacity", 0.5)
 		.attr("text-anchor", "end")
 
-	const plotHeight = height / 3
 	const yearPlots = d3.select("body").selectAll("svg")
 		.data([2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016, 2015])
 		.enter()
 		.append("svg")
-		.attr("height", plotHeight)
 		.attr("width", width)
 		.attr("class", "plot")
 		.attr("id", d => d[0])
 
 	yearPlots.each(function (year) {
-		const datum = grouped.get(year)
+		const datum = groupedByYear.get(year)
+
+		const maxOfAllMonths = d3.rollup(datum, D => d3.max(D.map(d => d[1]).flat().map(d => d.end)), d => "maxCount")
+		const roundedUpDomainEnd = Math.ceil(maxOfAllMonths.get("maxCount") / 10) * 10
+
+		// 1 audit === 5px
+		const plotHeight = roundedUpDomainEnd * 5
 		const currentGroup = d3.select(this)
+		currentGroup.attr("height", plotHeight + margins.top + margins.bottom)
 
 		const canvas = currentGroup
 			.append("g")
 			.attr("class", "canvas")
 			.attr("width", width - margins.left - margins.right)
-			.attr("height", plotHeight - margins.bottom - margins.top)
+			.attr("height", plotHeight)
 			.attr("transform", `translate(${margins.left}, ${margins.top})`)
 
 		currentGroup
@@ -213,11 +246,10 @@
 
 		const axesGroup = currentGroup.append("g")
 			.attr("class", "axes")
-			.attr("height", plotHeight - margins.bottom - margins.top)
 
 		const xAxis = axesGroup.append("g")
 			.attr("class", "x axis")
-			.attr("transform", `translate(${margins.left}, ${plotHeight - margins.bottom})`)
+			.attr("transform", `translate(${margins.left}, ${plotHeight + margins.top})`)
 
 		const yAxis = axesGroup.append("g")
 			.attr("class", "y axis")
@@ -230,44 +262,10 @@
 		xScale.padding(0.1)
 		xAxis.call(d3.axisBottom(xScale))
 
-		const yScale = d3.scaleLinear().domain([50, 0]).range([0, plotHeight - margins.bottom - margins.top])
-		const groupedByMonths = d3.group(datum, d => d.audit?.toLocaleDateString(undefined, { month: "short" }))
+		const yScale = d3.scaleLinear([roundedUpDomainEnd, 0], [0, plotHeight]).nice()
+		yAxis.call(d3.axisLeft(yScale).ticks(d3.tickIncrement(0, roundedUpDomainEnd, 5)))
 
-		for (const monthGroup of groupedByMonths) {
-			const [month, data] = monthGroup
-			const summed = d3.rollup(data, D => D.length, d => d.processTimeGroup, d => d.category)
-			const currentState = { start: 0, end: 0 }
-			const valueArray = []
-			orderOfGroups.forEach(groupName => {
-				if (summed.has(groupName)) {
-					for (const category of ["done", "finalized", "to do"]) {
-						const group = summed.get(groupName)
-
-						if (group.has(category)) {
-							const value = group.get(category)
-							currentState.end += value
-							valueArray.push({ group: groupName, value, ...currentState, monthName: month, category })
-							currentState.start += value
-						}
-					}
-				}
-			})
-
-		groupedByMonths.set(month, valueArray)
-
-		const maxOfAllMonths = d3.max(
-			groupedByMonths.values(),
-			values => d3.max(values, d => d.end)
-		)
-
-		// maxDomain / 50 * (plotHeight - margins.bottom - margins.top) is the height
-
-			yScale.domain([maxOfAllMonths, 0]).nice()
-			yAxis.call(d3.axisLeft(yScale))
-
-		}
-
-		const flatArray = Array.from(groupedByMonths.values()).flat()
+		const flatArray = Array.from(datum.values()).flat()
 		// ok now let's do the series
 		const series = d3.group(flatArray, d => d.group)
 		const categoryGroups = canvas.selectAll("g")
