@@ -12,6 +12,7 @@
 			padding: 0;
 			color-scheme: light dark;
 			fill: light-dark(#c6c4c4, rgb(40, 40, 40));
+			font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
 		}
 
 		.done {
@@ -27,8 +28,7 @@
 		}
 
 		text {
-			font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
-			fill: light-dark(black, white);;
+			fill: light-dark(black, white);
 		}
 
 	</style>
@@ -40,7 +40,6 @@
 	const height = document.documentElement.clientHeight
 
 	const body = d3.select("body")
-		// .append("svg")
 		.attr("width", width)
 		.attr("height", height)
 		.attr("viewBox", `0, 0, ${width}, ${height}`)
@@ -52,8 +51,10 @@
 	const steps = d3.index(stepsRaw.map(d => {
 		return { ...d, id: Number(d.id), stageId: Number(d.stageId), Punkte: parseFloat(d.Punkte) }
 	}), d => d.stepName)
+
 	// because my data is so old i'm gonna pretend that "TODAY" is the 10th of Feb 2024
-	const today = new Date(2024, 1, 10)
+	// replace with new Date() for true today
+	const today = new Date(2024, 1, 10) // actually today: const today = new Date()
 
 	const auditFactData = auditDataRaw.map(d => {
 			const [day, month, year] = d.dueDateAudit.split(" ")[0].split(".")
@@ -65,9 +66,12 @@
 		})
 
 	const auditFactMap = d3.index(auditFactData, d => d.auditId)
-	// only keep awsv / vaws and specific steps
+	// only keep awsv / vaws / betrsichv and specific steps
+	const auditTypes = ["AwSV", "VAwS", "BetrSichV"]
+
 	const worklogDataFiltered = worklogDataRaw
-		.filter(d => d.auditId.includes("_awsv") || d.auditId.includes("_vaws") || d.auditId.includes("_betrSichV"))
+		.filter(d => auditTypes.map(type => d.auditId.toLocaleLowerCase().includes(type.toLocaleLowerCase()))
+			.some(evaluation => evaluation === true))
 		.filter(d => ["Termin", "Freigabe", "Versand"].includes(d.workstep))
 		.map(d => {
 			const [day, month, year] = d.doneAt.split(" ")[0].split(".")
@@ -136,10 +140,52 @@
 	const grouped = d3.group(Array.from(auditEvaluationMap.values()),
 		d => d.audit?.getFullYear())
 
+	const orderOfGroups = [
+		"1 Woche",	"2 Wochen",	"3 Wochen",	"4 Wochen",	"5 Wochen",	"6 Wochen",	"7 Wochen",	"8 Wochen",	"> 16 Wochen"
+	]
+	const colorScale = d3.scaleOrdinal([...orderOfGroups].reverse(), d3.schemeRdYlBu[9])
+
+	const margins = { top: 20, bottom: 30, left: 50, right: 20 }
+	const legend = d3.select("body")
+		.append("svg")
+		.attr("id", "legend")
+		.attr("transform", `translate(${width - 80*orderOfGroups.length - margins.right}, 10)`)
+		.attr("fill", "white")
+		.attr("width", 80*orderOfGroups.length)
+		.attr("height", 40)
+
+	const legendItemContainers = legend
+		.selectAll("text")
+		.data(orderOfGroups)
+		.enter()
+		.append("g")
+		.attr("class", d => d)
+		.attr("transform", (d, i) => `translate(${i * 80}, 10)`)
+
+	legendItemContainers.append("rect")
+		.attr("width", 10)
+		.attr("height", 10)
+		.attr("fill", d => colorScale(d))
+		.attr("transform", `translate(0, -10)`)
+
+	legendItemContainers
+		.append("text")
+		.attr("fill", "white")
+		.attr("textBaseline", "alphabetic")
+		.attr("transform", `translate(15, 0)`)
+		.text(d => d)
+
+	legend
+		.append("text")
+		.text("semitransparente Flächen sind Berichte, die zwar freigegeben, aber noch nicht versandt sind")
+		.attr("y", 25)
+		.attr("x", 80*orderOfGroups.length)
+		.attr("opacity", 0.5)
+		.attr("text-anchor", "end")
+
 	const plotHeight = height / 3
-	const margins = { top: 10, bottom: 30, left: 50, right: 20 }
 	const yearPlots = d3.select("body").selectAll("svg")
-		.data([2024, 2023, 2022, 2021])
+		.data([2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016, 2015])
 		.enter()
 		.append("svg")
 		.attr("height", plotHeight)
@@ -160,9 +206,9 @@
 
 		currentGroup
 			.append("text")
-			.text("Audits mit erstem Termin in Kalenderjahr " + year)
-			.attr("x", margins.left + 20)
-			.attr("y", margins.top + 10)
+			.text(auditTypes.join(" | ") + " Audits mit erstem Termin in Kalenderjahr " + year)
+			.attr("x", margins.left)
+			.attr("y", 10)
 			.attr("text-anchor", "start")
 
 		const axesGroup = currentGroup.append("g")
@@ -182,20 +228,10 @@
 		.map(date => date.toLocaleDateString(undefined, { month: "short" }))
 		const xScale = d3.scaleBand(monthStartArray, [0, width - margins.left - margins.right])
 		xScale.padding(0.1)
-
+		xAxis.call(d3.axisBottom(xScale))
 
 		const yScale = d3.scaleLinear().domain([50, 0]).range([0, plotHeight - margins.bottom - margins.top])
-
-		xAxis.call(d3.axisBottom(xScale))
-		yAxis.call(d3.axisLeft(yScale))
-
-
 		const groupedByMonths = d3.group(datum, d => d.audit?.toLocaleDateString(undefined, { month: "short" }))
-
-		const orderOfGroups = [
-			"1 Woche",	"2 Wochen",	"3 Wochen",	"4 Wochen",	"5 Wochen",	"6 Wochen",	"7 Wochen",	"8 Wochen",	"> 16 Wochen"
-		]
-		const colorScale = d3.scaleOrdinal([...orderOfGroups].reverse(), d3.schemeRdYlBu[9])
 
 		for (const monthGroup of groupedByMonths) {
 			const [month, data] = monthGroup
@@ -217,7 +253,18 @@
 				}
 			})
 
-			groupedByMonths.set(month, valueArray)
+		groupedByMonths.set(month, valueArray)
+
+		const maxOfAllMonths = d3.max(
+			groupedByMonths.values(),
+			values => d3.max(values, d => d.end)
+		)
+
+		// maxDomain / 50 * (plotHeight - margins.bottom - margins.top) is the height
+
+			yScale.domain([maxOfAllMonths, 0]).nice()
+			yAxis.call(d3.axisLeft(yScale))
+
 		}
 
 		const flatArray = Array.from(groupedByMonths.values()).flat()
