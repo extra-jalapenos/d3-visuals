@@ -20,6 +20,27 @@
 	// which timeframe should be shown
 	const timeFrameShown = [new Date(2023,10,1), new Date(2024, 1, 5)]
 
+	const worklogDataFiltered = worklogDataRaw
+		.map(d => {
+			// invalid date?
+			const [day, month, year] = d.doneAt.split(" ")[0].split(".")
+			const dateObj = new Date(year, month-1, day)
+			if (isNaN(dateObj.getTime())) return null
+
+			return {
+				...d,
+				workstep: steps.get(d.workstep),
+				doneAt: new Date(year, month-1, day)
+			}
+		})
+		.filter(el => el !== null)
+
+	const rangeOfAudits = d3.extent(worklogDataFiltered.filter(d => d.workstep.stepName === "Termin"), d => d.doneAt)
+
+	// create a map by audit
+	const auditEvaluationMap = d3.group(worklogDataFiltered, d => d.auditId)
+
+
 	// preprocess the loaded data
 	const auditFactData = auditDataRaw.map(d => {
 			const [day, month, year] = d.dueDateAudit.split(" ")[0].split(".")
