@@ -60,12 +60,12 @@
 	const auditFactMap = d3.index(auditFactData, d => d.auditId)
 
 	// collect relevant info such as progress, dueDate, last activity by ID
-	const auditIdsWithWorklogsInTimeframe = d3.sort(d3.union(worklogsInTimeframe.map(d => d.auditId)), (a, b) => {
-		const statusA = auditFactMap.has(a) ? auditFactMap.get(a).progress.id : 0
-		const statusB = auditFactMap.has(b) ? auditFactMap.get(b).progress.id : 0
-		return d3.ascending(a, b)
-	})
-
+	const auditIdsWithWorklogsInTimeframe = Array.from(d3.union(worklogsInTimeframe.map(d => d.auditId)))
+		.sort((a, b) => {
+			const statusA = auditFactMap.has(a) ? auditFactMap.get(a).progress.id : 0
+			const statusB = auditFactMap.has(b) ? auditFactMap.get(b).progress.id : 0
+			return statusB - statusA
+		})
 	// Declare the chart dimensions and margins.
 	const width = document.documentElement.clientWidth;
 	const marginTop = 20;
