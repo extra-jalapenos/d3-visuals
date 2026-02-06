@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Visual Timeline of audits</title>
+	<link rel="stylesheet" href="base.css">
+</head>
+<body>
+<script type="module">
+	import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
+
+	// Declare the chart dimensions and margins.
+	const width = document.documentElement.clientWidth;
+	const height = document.documentElement.clientHeight;
+	const marginTop = 20;
+	const marginRight = 40;
+	const marginBottom = 50;
+	const marginLeft = 40;
+
+	// Create the SVG container.
+	const svg = d3.select("body").append("svg")
+			.attr("width", width)
+			.attr("height", height)
+			.attr("viewBox", `0, 0, ${width}, ${height}`)
+
+	// Declare the x (horizontal position) scale.
+	const x = d3.scaleUtc()
+			.domain([new Date("2023-01-01"), new Date("2024-01-01")])
+			.range([marginLeft, width - marginRight]);
+
+	// Declare the y (vertical position) scale.
+	const y = d3.scaleLinear()
+			.domain([0, 100])
+			.range([height - marginBottom, marginTop]);
+
+	// Add the x-axis.
+	svg.append("g")
+			.attr("transform", `translate(0,${height - marginBottom})`)
+			.call(d3.axisBottom(x));
+
+	// Add the y-axis.
+	svg.append("g")
+			.attr("transform", `translate(${marginLeft},0)`)
+			.call(d3.axisLeft(y));
+</script>
+</body>
+</html>
