@@ -35,8 +35,9 @@
 		})
 		.filter(el => el !== null)
 
-	const rangeOfAudits = d3.extent(worklogDataFiltered.filter(d => d.workstep.stepName === "Termin"), d => d.doneAt)
-
+	const worklogsInTimeframe = worklogDataFiltered.filter(d => d.doneAt >= timeFrameShown[0] && d.doneAt <= timeFrameShown[1])
+	const auditIdsWithWorklogsInTimeframe = d3.union(worklogsInTimeframe.map(d => d.auditId))
+	
 	// create a map by audit
 	const auditEvaluationMap = d3.group(worklogDataFiltered, d => d.auditId)
 
