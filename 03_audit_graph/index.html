@@ -30,6 +30,8 @@
 			}
 		})
 
+	const auditFactMap = d3.index(auditFactData, d => d.auditId)
+
 
 	// Declare the chart dimensions and margins.
 	const width = document.documentElement.clientWidth;
