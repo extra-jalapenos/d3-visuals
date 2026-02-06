@@ -1,0 +1,7 @@
+body {
+	background-color: light-dark(rgb(225, 225, 225), rgb(42, 42, 42));
+}
+
+.canvas {
+	fill: red;
+}

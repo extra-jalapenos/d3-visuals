@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Audit Duedates</title>
+	<link rel="stylesheet" href="base.css">
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+	<style>
+		html, body {
+			margin: 0;
+			padding: 0;
+			color-scheme: light dark;
+			fill: light-dark(#c6c4c4, rgb(40, 40, 40));
+			font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+		}
+
+		.done {
+			opacity: 1;
+		}
+
+		.finalized {
+			opacity: 0.5;
+		}
+
+		.to-do {
+			opacity: 0.33;
+		}
+
+		text {
+			fill: light-dark(black, white);
+		}
+
+	</style>
+</head>
+<body>
+<script type="module">
+	// for FULL view!
+	const width = document.documentElement.clientWidth
+	const height = document.documentElement.clientHeight
+
+	const body = d3.select("body")
+		.attr("width", width)
+		.attr("height", height)
+		.attr("viewBox", `0, 0, ${width}, ${height}`)
+		.attr("preserveAspectRatio", "none")
+
+	const worklogDataRaw = await d3.tsv("./worklogs.txt")
+	const auditDataRaw = await d3.tsv("./audits.txt")
+	const stepsRaw = await d3.tsv("../01_status_burndown/steps.tsv")
+	const steps = d3.index(stepsRaw.map(d => {
+		return { ...d, id: Number(d.id), stageId: Number(d.stageId), Punkte: parseFloat(d.Punkte) }
+	}), d => d.stepName)
+
+	// because my data is so old i'm gonna pretend that "TODAY" is the 10th of Feb 2024
+	// replace with new Date() for true today
+	const today = new Date(2024, 1, 10) // actually today: const today = new Date()
+
+	const auditFactData = auditDataRaw.map(d => {
+			const [day, month, year] = d.dueDateAudit.split(" ")[0].split(".")
+			return {
+				auditId: d.auditId,
+				progress: steps.get(d.progressLabel),
+				dueDate: new Date(year, month-1, day)
+			}
+		})
+
+	const auditFactMap = d3.index(auditFactData, d => d.auditId)
+	// only keep awsv / vaws / betrsichv and specific steps
+	const auditTypes = ["AwSV", "VAwS", "BetrSichV"]
+
+	const worklogDataFiltered = worklogDataRaw
+		.filter(d => auditTypes.map(type => d.auditId.toLocaleLowerCase().includes(type.toLocaleLowerCase()))
+			.some(evaluation => evaluation === true))
+		.filter(d => ["Termin", "Freigabe", "Versand"].includes(d.workstep))
+		.map(d => {
+			const [day, month, year] = d.doneAt.split(" ")[0].split(".")
+			return {
+				...d,
+				workstep: steps.get(d.workstep),
+				doneAt: new Date(year, month-1, day)
+			}
+		})
+
+	const rangeOfAudits = d3.extent(worklogDataFiltered.filter(d => d.workstep.stepName === "Termin"), d => d.doneAt)
+
+	// create a map by audit
+	const auditEvaluationMap = d3.group(worklogDataFiltered, d => d.auditId)
+
+	// for each map process the content so we get { "done": true, "daysBetweenAudit": 23, "auditDate": Date, "auditor": Name }
+	for (const audit of auditEvaluationMap) {
+		const [auditId, data] = audit
+		const rollupMap = d3.rollup(data, D => d3.min(D.map(d => d.doneAt)), d => d.workstep.stepName)
+		// due date etc. lookup:
+		const auditFacts = auditFactMap.get(auditId)
+		// as long as progress is above 11 done is true
+		const status = auditFacts.progress
+		const category = () => {
+			if (!rollupMap.get("Termin")) return "to do"
+			if (!rollupMap.get("Versand")) return "finalized"
+			return "done"
+		}
+
+		const processTime = () => {
+			const start = rollupMap.get("Termin")
+			// if we don't know the sendoff date we'll settle for finalization
+			const end = rollupMap.get("Versand") || rollupMap.get("Freigabe") || today
+			if (!start) return null
+			const differenceInDays = (
+				Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate())
+				- Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate())
+			) / (1000 * 86400)
+			return differenceInDays
+		}
+
+		const differenceInDays = processTime()
+		const calculateProcessTimeCategory = () => {
+			if (differenceInDays === null || differenceInDays < 0) return "unknown"
+			if (differenceInDays > 16*7) return "> 16 Wochen"
+			const timeBordersInWeeks = [ 1, 2, 3, 4, 6, 8, 12, 16 ]
+			const numWeeks = timeBordersInWeeks.findLast(weekNum => weekNum *7 <= differenceInDays)
+			if (!numWeeks) return "unknown"
+			return `${numWeeks} Woche${numWeeks >= 1 ? "n" : ""}`
+		}
+
+		auditEvaluationMap.set(auditId, {
+			progress: auditFacts.progress,
+			category: category(),
+			differenceInDays,
+			processTimeGroup: calculateProcessTimeCategory(),
+			audit: rollupMap.get("Termin"),
+			dueDate: auditFacts.dueDate
+		})
+
+	}
+
+	const auditDateRange = d3.extent(auditEvaluationMap.values(), d => d.audit)
+	const months = d3.timeMonth.every(1).range(...auditDateRange)
+
+	const groupedByYear = d3.group(Array.from(auditEvaluationMap.values()),
+		d => d.audit?.getFullYear())
+
+	const orderOfGroups = [
+		"1 Woche",	"2 Wochen",	"3 Wochen",	"4 Wochen",	"5 Wochen",	"6 Wochen",	"7 Wochen",	"8 Wochen",	"> 16 Wochen"
+	]
+
+	for (const yearGroup of groupedByYear) {
+		const [year, yearData] = yearGroup
+		const groupedByMonths = d3.group(yearData, d => d.audit?.toLocaleDateString(undefined, { month: "short" }))
+		for (const monthGroup of groupedByMonths) {
+			const [month, data] = monthGroup
+			const summed = d3.rollup(data, D => D.length, d => d.processTimeGroup, d => d.category)
+			const currentState = { start: 0, end: 0 }
+			const valueArray = []
+			orderOfGroups.forEach(groupName => {
+				if (summed.has(groupName)) {
+					for (const category of ["done", "finalized", "to do"]) {
+						const group = summed.get(groupName)
+
+						if (group.has(category)) {
+							const value = group.get(category)
+							currentState.end += value
+							valueArray.push({ group: groupName, value, ...currentState, monthName: month, category })
+							currentState.start += value
+						}
+					}
+				}
+			})
+			groupedByMonths.set(month, valueArray)
+		}
+		groupedByYear.set(year, groupedByMonths)
+	}
+
+	const colorScale = d3.scaleOrdinal([...orderOfGroups].reverse(), d3.schemeRdYlBu[9])
+
+	const margins = { top: 20, bottom: 30, left: 50, right: 20 }
+	const legend = d3.select("body")
+		.append("svg")
+		.attr("id", "legend")
+		.attr("transform", `translate(${width - 80 * orderOfGroups.length - margins.right}, 10)`)
+		.attr("fill", "white")
+		.attr("width", 80 * orderOfGroups.length)
+		.attr("height", 40)
+
+	const legendItemContainers = legend
+		.selectAll("text")
+		.data(orderOfGroups)
+		.enter()
+		.append("g")
+		.attr("class", d => d)
+		.attr("transform", (d, i) => `translate(${i * 80}, 10)`)
+
+	legendItemContainers.append("rect")
+		.attr("width", 10)
+		.attr("height", 10)
+		.attr("fill", d => colorScale(d))
+		.attr("transform", `translate(0, -10)`)
+
+	legendItemContainers
+		.append("text")
+		.attr("fill", "white")
+		.attr("textBaseline", "alphabetic")
+		.attr("transform", `translate(15, 0)`)
+		.text(d => d)
+
+	legend
+		.append("text")
+		.text("semitransparente Flächen sind Berichte, die zwar freigegeben, aber noch nicht versandt sind")
+		.attr("y", 25)
+		.attr("x", 80 * orderOfGroups.length)
+		.attr("opacity", 0.5)
+		.attr("text-anchor", "end")
+	console.log(groupedByYear)
+	const yearPlots = d3.select("body").selectAll("svg")
+		.data(groupedByYear.keys().filter(el => el !== undefined))
+		.enter()
+		.append("svg")
+		.attr("width", width)
+		.attr("class", "plot")
+		.attr("id", d => d[0])
+
+	yearPlots.each(function (year) {
+		if (!year) return
+		const datum = groupedByYear.get(year)
+
+		const maxOfAllMonths = d3.rollup(datum, D => d3.max(D.map(d => d[1]).flat().map(d => d.end)), d => "maxCount")
+		const roundedUpDomainEnd = Math.ceil(maxOfAllMonths.get("maxCount") / 10) * 10
+
+		// 1 audit === 5px
+		const plotHeight = roundedUpDomainEnd * 5
+		const currentGroup = d3.select(this)
+		currentGroup.attr("height", plotHeight + margins.top + margins.bottom)
+
+		const canvas = currentGroup
+			.append("g")
+			.attr("class", "canvas")
+			.attr("width", width - margins.left - margins.right)
+			.attr("height", plotHeight)
+			.attr("transform", `translate(${margins.left}, ${margins.top})`)
+
+		currentGroup
+			.append("text")
+			.text(auditTypes.join(" | ") + " Audits mit erstem Termin in Kalenderjahr " + year)
+			.attr("x", margins.left)
+			.attr("y", 10)
+			.attr("text-anchor", "start")
+
+		const axesGroup = currentGroup.append("g")
+			.attr("class", "axes")
+
+		const xAxis = axesGroup.append("g")
+			.attr("class", "x axis")
+			.attr("transform", `translate(${margins.left}, ${plotHeight + margins.top})`)
+
+		const yAxis = axesGroup.append("g")
+			.attr("class", "y axis")
+			.attr("transform", `translate(${margins.left}, ${margins.top})`)
+
+		const calendarYear = [new Date(year, 0, 1), new Date(year, 11, 31)]
+		const monthStartArray = d3.timeMonth.every(1).range(...calendarYear)
+		.map(date => date.toLocaleDateString(undefined, { month: "short" }))
+		const xScale = d3.scaleBand(monthStartArray, [0, width - margins.left - margins.right])
+		xScale.padding(0.1)
+		xAxis.call(d3.axisBottom(xScale))
+
+		const yScale = d3.scaleLinear([roundedUpDomainEnd, 0], [0, plotHeight]).nice()
+		yAxis.call(d3.axisLeft(yScale).ticks(d3.tickIncrement(0, roundedUpDomainEnd, 5)))
+
+		const flatArray = Array.from(datum.values()).flat()
+		// ok now let's do the series
+		const series = d3.group(flatArray, d => d.group)
+		const categoryGroups = canvas.selectAll("g")
+			.data(series)
+			.enter()
+			.append("g")
+			.attr("class", D => D[0])
+
+		const rectangles  = categoryGroups
+				.selectAll("rect")
+				.data(D => D[1])
+				.enter()
+				.append("rect")
+				.attr("class", d => d.category)
+				.attr("fill", d => colorScale(d.group))
+				.attr("value", d => d.value)
+				.attr("x", d => xScale(d.monthName))
+				.attr("y", d => yScale(d.end))
+				.attr("width", d => xScale.bandwidth())
+				.attr("height", d => yScale(d.start) - yScale(d.end))
+	})
+
+</script>
+</body>
+</html>
