@@ -210,9 +210,9 @@
 		.attr("x", 80 * orderOfGroups.length)
 		.attr("opacity", 0.5)
 		.attr("text-anchor", "end")
-
+	console.log(groupedByYear)
 	const yearPlots = d3.select("body").selectAll("svg")
-		.data([2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016, 2015])
+		.data(groupedByYear.keys().filter(el => el !== undefined))
 		.enter()
 		.append("svg")
 		.attr("width", width)
@@ -220,6 +220,7 @@
 		.attr("id", d => d[0])
 
 	yearPlots.each(function (year) {
+		if (!year) return
 		const datum = groupedByYear.get(year)
 
 		const maxOfAllMonths = d3.rollup(datum, D => d3.max(D.map(d => d[1]).flat().map(d => d.end)), d => "maxCount")
