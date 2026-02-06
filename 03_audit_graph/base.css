@@ -1,8 +1,25 @@
 html, body {
 	margin: 0;
 	padding: 0;
+	font-family: Arial, Helvetica, sans-serif;
 }
 
 body {
-	background-color: light-dark(rgb(225, 225, 225), rgb(42, 42, 42));
+	background-color:rgb(42, 42, 42);
+}
+
+path, line {
+	stroke: rgba(200,200,200,0.4);
+}
+
+text {
+	fill: rgba(200,200,200,1);
+}
+
+.lane {
+	fill: rgba(200,200,200,0.1);
+}
+
+.lane:hover {
+	fill: rgba(200,200,200,0.4);
 }
