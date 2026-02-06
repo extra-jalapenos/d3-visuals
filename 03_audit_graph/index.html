@@ -29,6 +29,7 @@
 			.attr("width", width)
 			.attr("height", height)
 			.attr("viewBox", `0, 0, ${width}, ${height}`)
+			.attr("preserveAspectRatio", "none")
 
 	// Declare the x (horizontal position) scale.
 	const x = d3.scaleUtc()
