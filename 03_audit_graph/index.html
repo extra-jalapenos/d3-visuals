@@ -91,7 +91,10 @@
 	// Add the x-axis.
 	const xAxis = svg.append("g")
 			.attr("transform", `translate(0,${height - marginBottom})`)
-			.call(d3.axisBottom(x).ticks(hierarchyLevels.get(chosenHierarchyLevel)).tickFormat(d3.utcFormat("%d.%m.%y")))
+			.call(d3.axisBottom(x)
+				.ticks(hierarchyLevels.get(chosenHierarchyLevel))
+				.tickFormat(d3.utcFormat("%d.%m.%y"))
+			)
 
 	// Add the y-axis.
 	svg.append("g")
