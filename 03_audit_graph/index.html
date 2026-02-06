@@ -11,6 +11,10 @@
 	import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
 	const worklogDataRaw = await d3.tsv("../01_status_burndown/data.txt")
 	const auditDataRaw = await d3.tsv("../02_audit_duedates/audits.txt")
+	const stepsRaw = await d3.tsv("../01_status_burndown/steps.tsv")
+	const steps = d3.index(stepsRaw.map(d => {
+		return { ...d, id: Number(d.id), stageId: Number(d.stageId), Punkte: parseFloat(d.Punkte) }
+	}), d => d.stepName)
 
 	// Declare the chart dimensions and margins.
 	const width = document.documentElement.clientWidth;
