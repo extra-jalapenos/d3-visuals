@@ -19,6 +19,7 @@
 
 	// which timeframe should be shown
 	const timeFrameShown = [new Date(2023,10,1), new Date(2024, 1, 5)]
+	const hierarchyLevels = new Map([0, "year"], [1, "quarter"], [2, "month"])
 
 	const worklogDataFiltered = worklogDataRaw
 		.map(d => {
@@ -37,10 +38,13 @@
 
 	const worklogsInTimeframe = worklogDataFiltered.filter(d => d.doneAt >= timeFrameShown[0] && d.doneAt <= timeFrameShown[1])
 	const auditIdsWithWorklogsInTimeframe = d3.union(worklogsInTimeframe.map(d => d.auditId))
-	
+
 	// create a map by audit
 	const auditEvaluationMap = d3.group(worklogDataFiltered, d => d.auditId)
 
+	// color scale
+	const statusOrder = ["Beginn", "VB I", "Tourenplanung", "VB II", "Termin", "NB I", "NB II", "Fertigstellung", "Prüfung", "Freigabe", "Versand", "Rechnung", "Zahlung"]
+	const colorScaleAlt = d3.scaleSequential(d3.interpolateRdYlGn).domain([0, statusOrder.length])
 
 	// preprocess the loaded data
 	const auditFactData = auditDataRaw.map(d => {
