@@ -20,6 +20,16 @@
 	// which timeframe should be shown
 	const timeFrameShown = [new Date(2023,10,1), new Date(2024, 1, 5)]
 
+	// preprocess the loaded data
+	const auditFactData = auditDataRaw.map(d => {
+			const [day, month, year] = d.dueDateAudit.split(" ")[0].split(".")
+			return {
+				auditId: d.auditId,
+				progress: steps.get(d.progressLabel),
+				dueDate: new Date(year, month-1, day)
+			}
+		})
+
 
 	// Declare the chart dimensions and margins.
 	const width = document.documentElement.clientWidth;
