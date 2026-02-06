@@ -19,7 +19,10 @@
 
 	// which timeframe should be shown
 	const timeFrameShown = [new Date(2023,10,1), new Date(2024, 1, 5)]
-	const hierarchyLevels = new Map([0, "year"], [1, "quarter"], [2, "month"])
+	// we save the generators for e.g. ticks by strings for accessing them and dynamically generating the x-Axis
+	const hierarchyLevels = new d3.InternMap([["year", d3.timeYear.every(1)],  [ "quarter", d3.timeMonth.every(3) ], [ "month", d3.timeMonth ]])
+
+	let chosenHierarchyLevel = "month"
 
 	const worklogDataFiltered = worklogDataRaw
 		.map(d => {
@@ -44,7 +47,7 @@
 
 	// color scale
 	const statusOrder = ["Beginn", "VB I", "Tourenplanung", "VB II", "Termin", "NB I", "NB II", "Fertigstellung", "Prüfung", "Freigabe", "Versand", "Rechnung", "Zahlung"]
-	const colorScaleAlt = d3.scaleSequential(d3.interpolateRdYlGn).domain([0, statusOrder.length])
+	const colorScale = d3.scaleSequential(d3.interpolateRdYlGn).domain([0, statusOrder.length])
 
 	// preprocess the loaded data
 	const auditFactData = auditDataRaw.map(d => {
@@ -76,7 +79,7 @@
 
 	// Declare the x (horizontal position) scale.
 	const x = d3.scaleUtc()
-			.domain([new Date("2023-01-01"), new Date("2024-01-01")])
+			.domain(timeFrameShown)
 			.range([marginLeft, width - marginRight]);
 
 	// Declare the y (vertical position) scale.
@@ -85,9 +88,9 @@
 			.range([height - marginBottom, marginTop]);
 
 	// Add the x-axis.
-	svg.append("g")
+	const xAxis = svg.append("g")
 			.attr("transform", `translate(0,${height - marginBottom})`)
-			.call(d3.axisBottom(x));
+			.call(d3.axisBottom(x).ticks(hierarchyLevels.get(chosenHierarchyLevel)).tickFormat(d3.utcFormat("%d.%m.%y")))
 
 	// Add the y-axis.
 	svg.append("g")
