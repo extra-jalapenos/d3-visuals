@@ -64,11 +64,12 @@
 
 	// Declare the chart dimensions and margins.
 	const width = document.documentElement.clientWidth;
-	const height = document.documentElement.clientHeight;
 	const marginTop = 20;
 	const marginRight = 40;
 	const marginBottom = 50;
-	const marginLeft = 40;
+	const marginLeft = 250;
+	const laneHeight = 20
+	const height = marginTop + marginBottom + laneHeight * auditIdsWithWorklogsInTimeframe.size;
 
 	// Create the SVG container.
 	const svg = d3.select("body").append("svg")
@@ -84,7 +85,7 @@
 
 	// Declare the y (vertical position) scale.
 	const y = d3.scaleBand()
-			.domain([0, 100])
+			.domain(auditIdsWithWorklogsInTimeframe)
 			.range([height - marginBottom, marginTop]);
 
 	// Add the x-axis.
