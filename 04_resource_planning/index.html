@@ -26,6 +26,8 @@
         return { ...d, id: Number(d.id), stageId: Number(d.stageId), Punkte: parseFloat(d.Punkte) }
     }), d => d.stepName)
 
+    const color = d3.scaleSequential([0, 14], d3.interpolateSpectral);
+
     // because my data is so old i'm gonna pretend that "TODAY" is the 10th of Feb 2023
     // replace with new Date() for true today
     const today = new Date(2023, 1, 10) // actually today: const today = new Date()
@@ -211,8 +213,8 @@
         const extentYAxis = d3.extent(condensedValues, d => d.daysTillDueDate)
         const extentXAxis = d3.extent(condensedValues, d => d.daysTillNextStatus)
 
-        const xScale = d3.scaleLinear().domain(extentXAxis).range([0, width - margin.left - margin.right])
-        const yScale = d3.scaleLinear().domain(extentYAxis).range([height / 2 - margin.top - margin.bottom, 0])
+        const xScale = d3.scaleLinear().domain([0, 300]).range([0, width - margin.left - margin.right])
+        const yScale = d3.scaleLinear().domain([0, 300]).range([height / 2 - margin.top - margin.bottom, 0])
 
         const xAxis = axes
             .append("g")
@@ -225,6 +227,17 @@
             .attr("class", "y axis")
             .attr("transform",  `translate(${margin.left}, ${margin.top})`)
             .call(d3.axisLeft(yScale))
+
+        // add circles; the "from" is the color determinator
+        const points = canvas.selectAll("circle")
+            .data(condensedValues)
+            .enter()
+            .append("circle")
+            .attr("cx", d => xScale(d.daysTillNextStatus))
+            .attr("cy", d => yScale(d.daysTillDueDate))
+            .attr("r", 3)
+            .attr("opacity", 0.25)
+            .attr("fill", d => color(steps.get(d.from).id))
     })
 
 </script>
