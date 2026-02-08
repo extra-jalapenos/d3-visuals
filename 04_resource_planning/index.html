@@ -19,6 +19,16 @@
         .attr("viewBox", `0, 0, ${width}, ${height}`)
         .attr("preserveAspectRatio", "none")
 
+    const worklogDataRaw = await d3.tsv("../02_audit_duedates/worklogs.txt")
+    const auditDataRaw = await d3.tsv("../02_audit_duedates/audits.txt")
+    const stepsRaw = await d3.tsv("../01_status_burndown/steps.tsv")
+    const steps = d3.index(stepsRaw.map(d => {
+        return { ...d, id: Number(d.id), stageId: Number(d.stageId), Punkte: parseFloat(d.Punkte) }
+    }), d => d.stepName)
+
+    // because my data is so old i'm gonna pretend that "TODAY" is the 10th of Feb 2023
+    // replace with new Date() for true today
+    const today = new Date(2023, 1, 10) // actually today: const today = new Date()
 </script>
 </body>
 </html>
