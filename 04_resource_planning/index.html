@@ -157,7 +157,27 @@
     }
 
     const groupedByAuditId = d3.rollup(worklogData, D => processLogs(D), d => d.auditId)
-    console.log(groupedByAuditId)
+
+    // we want to limit the reference data to elements with last status being at least "Versand"
+    const relevantEntries = Array.from(groupedByAuditId.entries()).filter(([key, value]) => {
+        const hasDueDate = auditDueDates.has(key)
+        if (!hasDueDate) return false
+        if (["Rechnung", "Zahlung"].includes(value.currentStatus) === false) return false
+        // let's filter for reference year >= 2020, too
+        const referenceYear = Number(key.split("_")[0])
+        if (referenceYear < 2020) return false
+        return true
+    })
+        .map(D => {
+            const [auditId, dataObj] = D
+            const referenceYear = Number(auditId.split("_")[0])
+            const auditType = auditId.split("_")[3]
+            const dueDate = auditDueDates.get(auditId).dueDate
+            return { ...dataObj, referenceYear, auditType, dueDate }
+        }) // add in audit type key and due date
+
+    const itemsPerAuditTypeAndReferenceYear = d3.rollup(relevantEntries, D => D.length, d => d.auditType)
+    console.log(itemsPerAuditTypeAndReferenceYear)
 </script>
 </body>
 </html>
