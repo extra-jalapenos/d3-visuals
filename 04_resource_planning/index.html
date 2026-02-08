@@ -29,6 +29,30 @@
     // because my data is so old i'm gonna pretend that "TODAY" is the 10th of Feb 2023
     // replace with new Date() for true today
     const today = new Date(2023, 1, 10) // actually today: const today = new Date()
+
+    const auditDueDates = d3.index(auditDataRaw.map(d => {
+            const [day, month, year] = d.dueDateAudit.split(" ")[0].split(".")
+            return {
+                auditId: d.auditId,
+                dueDate: (!isNan(year)) ? new Date(year, month-1, day) : null
+            }
+        })
+            .map(d => d.dueDate !== null)
+        , d => d.auditId)
+
+    const auditFactMap = d3.index(auditFactData, d => d.auditId)
+
+    const worklogDataFiltered = worklogDataRaw
+        .map(d => {
+            const [day, month, year] = d.doneAt.split(" ")[0].split(".")
+            return {
+                ...d,
+                workstepId: steps.get(d.workstep),
+                doneAt: new Date(year, month-1, day)
+            }
+        })
+        .filter(d => d.doneAt <= today)
+
 </script>
 </body>
 </html>
