@@ -35,23 +35,29 @@
             return {
                 auditId: d.auditId,
                 dueDate: (!isNan(year)) ? new Date(year, month-1, day) : null
+                dueDate: isNaN(year) === false ? new Date(year, month-1, day) : null
             }
         })
             .map(d => d.dueDate !== null)
+        .filter(d => d.dueDate !== null)
         , d => d.auditId)
 
     const auditFactMap = d3.index(auditFactData, d => d.auditId)
 
     const worklogDataFiltered = worklogDataRaw
+    const worklogData = worklogDataRaw
         .map(d => {
             const [day, month, year] = d.doneAt.split(" ")[0].split(".")
             return {
                 ...d,
                 workstepId: steps.get(d.workstep),
                 doneAt: new Date(year, month-1, day)
+                workstep: steps.get(d.workstep),
+                doneAt: isNaN(year) === false ? new Date(year, month-1, day) : null
             }
         })
         .filter(d => d.doneAt <= today)
+        .filter(d => d.doneAt !== null && d.doneAt <= today) // get rid of all steps with unknown doneAt date
 
 </script>
 </body>
