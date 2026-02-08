@@ -34,30 +34,27 @@
             const [day, month, year] = d.dueDateAudit.split(" ")[0].split(".")
             return {
                 auditId: d.auditId,
-                dueDate: (!isNan(year)) ? new Date(year, month-1, day) : null
                 dueDate: isNaN(year) === false ? new Date(year, month-1, day) : null
             }
         })
-            .map(d => d.dueDate !== null)
         .filter(d => d.dueDate !== null)
         , d => d.auditId)
 
-    const auditFactMap = d3.index(auditFactData, d => d.auditId)
-
-    const worklogDataFiltered = worklogDataRaw
     const worklogData = worklogDataRaw
         .map(d => {
             const [day, month, year] = d.doneAt.split(" ")[0].split(".")
             return {
                 ...d,
-                workstepId: steps.get(d.workstep),
-                doneAt: new Date(year, month-1, day)
                 workstep: steps.get(d.workstep),
                 doneAt: isNaN(year) === false ? new Date(year, month-1, day) : null
             }
         })
-        .filter(d => d.doneAt <= today)
         .filter(d => d.doneAt !== null && d.doneAt <= today) // get rid of all steps with unknown doneAt date
+
+    // we have the problem of seasonal work -- if we assume e.g. that audits are done 6 weeks prior to due date, we'll have a spike of "audits to do" for all 800 clients.
+    // to circumvent this, we'll analyse the past, assuming that humans will human; we will render past data in a form that allows us to get an answer to the question:
+    // "across all past audits of type EEG 2009, that were progressed to VB II 12 weeks out from due date, when did the progression to "audit" take place?"
+    // there will be a distribution of some kind which we will then sample for the current audits to predict when the audit will take place.
 
 </script>
 </body>
