@@ -1,0 +1,11 @@
+html, body {
+    margin: 0;
+    padding: 0;
+    color-scheme: light dark;
+    fill: light-dark(#c6c4c4, rgb(40, 40, 40));
+    font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+}
+
+text {
+    fill: light-dark(black, white);
+}
