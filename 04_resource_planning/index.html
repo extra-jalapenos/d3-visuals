@@ -158,7 +158,7 @@
 
     const groupedByAuditId = d3.rollup(worklogData, D => processLogs(D), d => d.auditId)
 
-    // we want to limit the reference data to elements with last status being at least "Versand"
+    // we want to limit the reference data to elements with last status being at least "Rechnung"
     const relevantEntries = Array.from(groupedByAuditId.entries()).filter(([key, value]) => {
         const hasDueDate = auditDueDates.has(key)
         if (!hasDueDate) return false
@@ -173,11 +173,60 @@
             const referenceYear = Number(auditId.split("_")[0])
             const auditType = auditId.split("_")[3]
             const dueDate = auditDueDates.get(auditId).dueDate
+            dataObj.statusProgression.forEach(status => {
+                const daysTillDueDate = Math.round((dueDate - status.date) / (1000 * 60 * 60 * 24))
+                status["daysTillDueDate"] = daysTillDueDate
+            })
             return { ...dataObj, referenceYear, auditType, dueDate }
         }) // add in audit type key and due date
 
-    const itemsPerAuditTypeAndReferenceYear = d3.rollup(relevantEntries, D => D.length, d => d.auditType)
-    console.log(itemsPerAuditTypeAndReferenceYear)
+    const itemsPerAuditType = d3.group(relevantEntries, d => d.auditType)
+    console.log(itemsPerAuditType)
+
+    // visualize the relationship between "daysTillDueDate" and "daysTillNextStatus", and what the next status is
+    const svgs = d3.select("body").selectAll("svg")
+        .data(itemsPerAuditType)
+        .enter()
+        .append("svg")
+        .attr("id", d => d[0])
+        .attr("width", width)
+        .attr("height", height / 2)
+
+    const margin = { top: 10, left: 30, bottom: 30, right: 10}
+
+    svgs.each(function (datum) {
+        const [key, value] = datum
+        const currentSVG = d3.select(this)
+
+        const canvas = currentSVG
+            .append("g")
+            .attr("class", "canvas")
+            .attr("transform", `translate(${margin.left}, ${margin.top})`)
+
+        const axes = currentSVG
+            .append("g")
+            .attr("class", "axes")
+
+        const condensedValues = value.map(d => d.statusProgression).flat()
+        const extentYAxis = d3.extent(condensedValues, d => d.daysTillDueDate)
+        const extentXAxis = d3.extent(condensedValues, d => d.daysTillNextStatus)
+
+        const xScale = d3.scaleLinear().domain(extentXAxis).range([0, width - margin.left - margin.right])
+        const yScale = d3.scaleLinear().domain(extentYAxis).range([height / 2 - margin.top - margin.bottom, 0])
+
+        const xAxis = axes
+            .append("g")
+            .attr("class", "x axis")
+            .attr("transform", `translate(${margin.left}, ${height/2 - margin.top - margin.bottom})`)
+            .call(d3.axisBottom(xScale))
+
+        const yAxis = axes
+            .append("g")
+            .attr("class", "y axis")
+            .attr("transform",  `translate(${margin.left}, ${margin.top})`)
+            .call(d3.axisLeft(yScale))
+    })
+
 </script>
 </body>
 </html>
