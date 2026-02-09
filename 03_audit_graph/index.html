@@ -18,7 +18,7 @@
 	}), d => d.stepName)
 
 	// which timeframe should be shown
-	const timeFrameShown = [new Date(2023,10,1), new Date(2024, 1, 5)]
+	const timeFrameShown = [new Date(2023,2,1), new Date(2024, 1, 28)]
 	// we save the generators for e.g. ticks by strings for accessing them and dynamically generating the x-Axis
 	const hierarchyLevels = new d3.InternMap([["year", d3.timeYear.every(1)],  [ "quarter", d3.timeMonth.every(3) ], [ "month", d3.timeMonth ]])
 
@@ -90,9 +90,10 @@
 		.attr("transform", `translate(${marginLeft}, ${marginTop})`)
 
 	// Declare the x (horizontal position) scale.
-	const xScale = d3.scaleUtc()
+	const xScale = d3.scaleTime()
 			.domain(timeFrameShown)
-			.range([0, width - marginLeft - marginRight]);
+			.range([0, width - marginLeft - marginRight])
+			.nice();
 
 	// Declare the y (vertical position) scale.
 	const yScale = d3.scaleBand()
@@ -105,8 +106,28 @@
 			.attr("transform", `translate(${marginLeft},${height - marginBottom})`)
 			.call(d3.axisBottom(xScale)
 				.ticks(hierarchyLevels.get(chosenHierarchyLevel))
-				.tickFormat(d3.utcFormat("%d.%m.%y"))
+				.tickFormat(d3.timeFormat("%d.%m.%y"))
 			)
+
+	const xGridLines = canvas.append("g")
+		.attr("class", "gridlines")
+		.selectAll("path")
+		.data(xScale.ticks())
+		.enter()
+		.append("path")
+		.attr("d", d => `M${xScale(d)},0l0,${height - marginTop - marginBottom}`)
+
+	const xGridMarkers = canvas.append("g")
+		.attr("class", "gridMarkers")
+		.selectAll("text")
+		.data(xScale.ticks())
+		.enter()
+		.append("text")
+		.attr("x", d => xScale(d))
+		.attr("y", -5)
+		.attr("position", "absolute")
+		.attr("text-anchor", "middle")
+		.text(d => d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" }))
 
 	// Add the y-axis.
 	const yAxis =	svg.append("g")
