@@ -125,7 +125,6 @@
 		.append("text")
 		.attr("x", d => xScale(d))
 		.attr("y", -5)
-		.attr("position", "absolute")
 		.attr("text-anchor", "middle")
 		.text(d => d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" }))
 
