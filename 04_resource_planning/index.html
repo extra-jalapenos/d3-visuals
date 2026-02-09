@@ -192,7 +192,7 @@
         .attr("width", width)
         .attr("height", height / 2)
 
-    const margin = { top: 10, left: 30, bottom: 30, right: 10}
+    const margin = { top: 20, left: 40, bottom: 30, right: 20}
 
     svgs.each(function (datum) {
         const [key, value] = datum
@@ -211,13 +211,13 @@
         const extentYAxis = d3.extent(condensedValues, d => d.daysTillDueDate)
         const extentXAxis = d3.extent(condensedValues, d => d.daysTillNextStatus)
 
-        const xScale = d3.scaleLinear().domain(extentXAxis).range([0, width - margin.left - margin.right])
-        const yScale = d3.scaleLinear().domain(extentYAxis).range([height / 2 - margin.top - margin.bottom, 0])
+        const xScale = d3.scaleLinear().domain([0, 300]).range([0, width - margin.left - margin.right])
+        const yScale = d3.scaleLinear().domain([0, 300]).range([(height / 2) - margin.top - margin.bottom, 0])
 
         const xAxis = axes
             .append("g")
             .attr("class", "x axis")
-            .attr("transform", `translate(${margin.left}, ${height/2 - margin.top - margin.bottom})`)
+            .attr("transform", `translate(${margin.left}, ${height/2 - margin.bottom})`)
             .call(d3.axisBottom(xScale))
 
         const yAxis = axes
