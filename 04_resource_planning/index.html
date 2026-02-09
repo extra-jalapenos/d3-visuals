@@ -10,13 +10,13 @@
 <body>
 <script type="module">
     // for FULL view!
-    const width = document.documentElement.clientWidth
-    const height = document.documentElement.clientHeight
+    const clientWidth = document.documentElement.clientWidth
+    const clientHeight = document.documentElement.clientHeight
 
     const body = d3.select("body")
-        .attr("width", width)
-        .attr("height", height)
-        .attr("viewBox", `0, 0, ${width}, ${height}`)
+        .attr("width", clientWidth)
+        .attr("height", clientHeight)
+        .attr("viewBox", `0, 0, ${clientWidth}, ${clientHeight}`)
         .attr("preserveAspectRatio", "none")
 
     const worklogDataRaw = await d3.tsv("../02_audit_duedates/worklogs.txt")
@@ -181,18 +181,19 @@
         }) // add in audit type key and due date
 
     const itemsPerAuditType = d3.group(relevantEntries, d => d.auditType)
-    console.log(itemsPerAuditType)
 
+    const margin = { top: 10, left: 30, bottom: 30, right: 10}
+    const plotHeight = clientHeight / 2 - margin.bottom - margin.top
+    const plotWidth = clientWidth - margin.left - margin.right
     // visualize the relationship between "daysTillDueDate" and "daysTillNextStatus", and what the next status is
     const svgs = d3.select("body").selectAll("svg")
         .data(itemsPerAuditType)
         .enter()
         .append("svg")
         .attr("id", d => d[0])
-        .attr("width", width)
-        .attr("height", height / 2)
+        .attr("width", clientWidth)
+        .attr("height", plotHeight)
 
-    const margin = { top: 10, left: 30, bottom: 30, right: 10}
 
     svgs.each(function (datum) {
         const [key, value] = datum
