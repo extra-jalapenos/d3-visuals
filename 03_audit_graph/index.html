@@ -128,12 +128,23 @@
 		const dataPointsInTimeframe = dataPoints.filter(d => d.doneAt >= timeFrameShown[0] && d.doneAt <= timeFrameShown[1])
 		const currentGroup = d3.select(this)
 		const status = auditFactMap.has(auditId) ? auditFactMap.get(auditId) : "unknown"
+		const lastActivity = dataPointsInTimeframe[dataPointsInTimeframe.length - 1]
+
 		currentGroup
 			.append("text")
 			.text(status.progress ? status.progress.stepName : "Beginn")
 			.attr("x", width - marginLeft - marginRight + 10)
 			.attr("y", yScale(auditId) - laneHeight/4)
 			.attr("textBaseline", "middle")
+
+		// currentGroup
+		// 	.append("text")
+		// 	.attr("class", "shown-on-hover")
+		// 	.text(lastActivity ? "zuletzt bearbeitet: " + lastActivity.doneAt.toLocaleDateString("de-DE") : "noch keine Aktivität")
+		// 	.attr("x", width - marginLeft - marginRight - 10)
+		// 	.attr("y", yScale(auditId) - laneHeight/4)
+		// 	.attr("text-anchor", "end")
+		// 	.attr("textBaseline", "middle")
 
 		currentGroup.append("rect")
 			.attr("width", width - marginLeft - marginRight)
