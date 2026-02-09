@@ -1,0 +1,19 @@
+html, body {
+	color-scheme: light dark;
+	background-color: light-dark(rgb(237, 226, 226), rgb(43, 42, 42));
+	font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+}
+
+text {
+	fill: light-dark(rgb(43, 42, 42), rgb(237, 226, 226))
+}
+
+.title {
+	font-size: 1.5rem;
+	text-anchor: end;
+}
+
+.progression {
+	fill: none;
+	stroke: rgba(255, 255, 255, 0.05);
+}

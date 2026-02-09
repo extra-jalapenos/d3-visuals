@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resource Planning</title>
+    <link rel="stylesheet" href="base.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+</head>
+<body>
+<script type="module">
+    // for FULL view!
+    const clientWidth = document.documentElement.clientWidth
+    const clientHeight = document.documentElement.clientHeight
+
+    const body = d3.select("body")
+        .attr("width", clientWidth)
+        .attr("height", clientHeight)
+        .attr("viewBox", `0, 0, ${clientWidth}, ${clientHeight}`)
+        .attr("preserveAspectRatio", "none")
+
+    const worklogDataRaw = await d3.tsv("../02_audit_duedates/worklogs.txt")
+    const auditDataRaw = await d3.tsv("../02_audit_duedates/audits.txt")
+    const stepsRaw = await d3.tsv("../01_status_burndown/steps.tsv")
+    const steps = d3.index(stepsRaw.map(d => {
+        return { ...d, id: Number(d.id), stageId: Number(d.stageId), Punkte: parseFloat(d.Punkte) }
+    }), d => d.stepName)
+
+    // because my data is so old i'm gonna pretend that "TODAY" is the 10th of Feb 2023
+    // replace with new Date() for true today
+    const today = new Date(2023, 1, 10) // actually today: const today = new Date()
+
+    const auditDueDates = d3.index(auditDataRaw.map(d => {
+            const [day, month, year] = d.dueDateAudit.split(" ")[0].split(".")
+            return {
+                auditId: d.auditId,
+                dueDate: isNaN(year) === false ? new Date(year, month-1, day) : null
+            }
+        })
+        .filter(d => d.dueDate !== null)
+        , d => d.auditId)
+
+    const worklogData = worklogDataRaw
+        .map(d => {
+            const [day, month, year] = d.doneAt.split(" ")[0].split(".")
+            return {
+                ...d,
+                workstep: steps.get(d.workstep),
+                doneAt: isNaN(year) === false ? new Date(year, month-1, day) : null
+            }
+        })
+
+    // we have the problem of seasonal work -- if we assume e.g. that audits are done 6 weeks prior to due date, we'll have a spike of "audits to do" for all 800 clients.
+    // to circumvent this, we'll analyse the past, assuming that humans will human; we will render past data in a form that allows us to get an answer to the question:
+    // "across all past audits of type EEG 2009, that were progressed to VB II 12 weeks out from due date, when did the progression to "audit" take place?"
+    // there will be a distribution of some kind which we will then sample for the current audits to predict when the audit will take place.
+
+    // function to calculate a status progression out of a worklog array
+    const processLogs = (worklogArray) => {
+        // we sort by workstep id first and then by date
+        // so should e.g. step 2 and 3 be done on the same date, we assume they were done in logical order
+        const sorted = worklogArray
+            .filter(d => d.doneAt !== null && d.doneAt <= today) // get rid of all steps with unknown doneAt date
+            .sort((a, b) => a.workstep.id - b.workstep.id)
+            .sort((a, b) => a.doneAt - b.doneAt)
+
+        if (sorted.length === 0) return []
+
+        // make a map of the earliest occurences of all listed steps
+        const worklogMap = new d3.rollup(sorted,
+            D => d3.min(D.map(d => d.doneAt)),
+            d => d.workstep.stepName
+        )
+
+        // define hurdles == hurdles are steps after which the status will not be moved back
+        // so e.g. even when there is an instance of "NB I" done after "Fertigstellung", it will have no effect on the status progression
+        // this emulates the status calculation in the application itself
+        // at least if I remember correctly
+        const hurdleStepNames = [
+            "Tourenplanung", "VB II", "Termin", "NB I", "Fertigstellung", "Prüfung", "Freigabe", "Versand", "Rechnung", "Zahlung"
+        ]
+
+        const hurdleWorklogs = sorted.filter(worklog => hurdleStepNames.includes(worklog.workstep.stepName))
+
+        // loop through and increase date if below previous
+        let previousDate = null
+        let cleanedInconsistentTimeline = false
+        const timeline = new d3.InternMap(hurdleStepNames.filter(hurdleStepName => worklogMap.has(hurdleStepName)) // relevantHurdles in order
+            .map(hurdleStepName => {
+                if (worklogMap.get(hurdleStepName) > previousDate) {
+                    previousDate = worklogMap.get(hurdleStepName)
+                } else if (worklogMap.get(hurdleStepName) < previousDate) {
+                    cleanedInconsistentTimeline = true
+                }
+                return [hurdleStepName, previousDate]
+            }))
+
+        // everything else is just contacting the client
+        const contactWorklogs = sorted.filter(worklog => hurdleStepNames.includes(worklog.workstep.stepName) === false)
+
+        // get VB Is: before Tourenplanung
+        const VBIMatches = contactWorklogs.filter(worklog => worklog.doneAt <= worklogMap.get("Tourenplanung"))
+        if (VBIMatches.length) {
+            timeline.set("VB I", d3.min(VBIMatches, d => d.doneAt))
+        }
+
+        // VB I done between set audit date and audit counts as VB II
+        const VBIIMatches = contactWorklogs.filter(worklog => worklog.date >= worklogMap.get("Tourenplanung") &&  worklog.date <= worklogMap.get("Termin"))
+        if (VBIIMatches.length) {
+            const earliestMatch = d3.min(VBIIMatches, d => d.doneAt)
+            if (worklogMap.has("VB II")) {
+                timeline.set("VB II", d3.min([worklogMap.get("VB II"), earliestMatch]))
+            } else {
+                timeline.set("VB II", earliestMatch)
+            }
+        }
+
+        const NBIIMatches = contactWorklogs.filter(worklog => worklog.date >= worklogMap.get("NB I") && worklog.date <= worklogMap.get("Fertigstellung"))
+        if (NBIIMatches.length) {
+            timeline.set("NB II", d3.min(NBIIMatches, d => d.date))
+        }
+
+        // we're not sorting anything. we're frankensteining this together
+        const finalArray = 	[
+            "VB I",
+            "Tourenplanung",
+            "VB II",
+            "Termin",
+            "NB I",
+            "NB II",
+            "Fertigstellung",
+            "Prüfung",
+            "Freigabe",
+            "Versand",
+            "Rechnung",
+            "Zahlung"
+        ].map(stepName => [stepName, timeline.get(stepName)])
+        .filter(stepAndDateTuple => !!stepAndDateTuple[1])
+
+        let from = "Beginn"
+        const statusProgression = finalArray.map(worklog => {
+            const [stepName, doneAt] = worklog
+            const returnObj = { from, to: stepName, date: doneAt }
+            from = stepName
+            return returnObj
+        })
+
+        statusProgression.forEach((worklog, index) => {
+            if (index !== finalArray.length - 1) {
+                const daysTillNextStatus = Math.round((statusProgression[index+1].date - worklog.date) / (1000 * 24 * 60 * 60));
+                worklog["daysTillNextStatus"] = daysTillNextStatus;
+            }
+        })
+
+        const completeProgression = finalArray.length === 14
+        return { statusProgression, completeProgression, worklogArray: finalArray, cleanedInconsistentTimeline, currentStatus: statusProgression[statusProgression.length - 1]?.to }
+    }
+
+    const groupedByAuditId = d3.rollup(worklogData, D => processLogs(D), d => d.auditId)
+
+    // we want to limit the reference data to elements with last status being at least "Rechnung"
+    const relevantEntries = Array.from(groupedByAuditId.entries()).filter(([key, value]) => {
+        const hasDueDate = auditDueDates.has(key)
+        if (!hasDueDate) return false
+        if (["Rechnung", "Zahlung"].includes(value.currentStatus) === false) return false
+        // let's filter for reference year >= 2020, too
+        const referenceYear = Number(key.split("_")[0])
+        if (referenceYear < 2021) return false
+        return true
+    })
+        .map(D => {
+            const [auditId, dataObj] = D
+            const referenceYear = Number(auditId.split("_")[0])
+            const auditType = auditId.split("_")[3]
+            const dueDate = auditDueDates.get(auditId).dueDate
+            dataObj.statusProgression.forEach(status => {
+                const daysTillDueDate = Math.round((dueDate - status.date) / (1000 * 60 * 60 * 24))
+                status["daysTillDueDate"] = daysTillDueDate
+            })
+            return { ...dataObj, referenceYear, auditType, dueDate }
+        }) // add in audit type key and due date
+
+    const itemsPerAuditType = d3.group(relevantEntries, d => d.auditType)
+
+    // visualize the relationship between "daysTillDueDate" and "daysTillNextStatus", and what the next status is
+    const margin = { top: 20, left: 80, bottom: 50, right: 30}
+    const plotHeight = (clientHeight / 2) - margin.top - margin.bottom
+    const plotWidth = clientWidth - margin.left - margin.right
+    const svgs = d3.select("body").selectAll("svg")
+        .data(itemsPerAuditType)
+        .enter()
+        .append("svg")
+        .attr("id", d => d[0])
+        .attr("width", clientWidth)
+        .attr("height", clientHeight / 2)
+
+
+    svgs.each(function (datum) {
+        const [key, value] = datum
+        const currentSVG = d3.select(this)
+
+        const canvas = currentSVG
+            .append("g")
+            .attr("class", "canvas")
+            .attr("transform", `translate(${margin.left}, ${margin.top})`)
+
+        const title = canvas
+            .append("text")
+            .attr("class", "title")
+            .text("Audit Type " + key.toUpperCase())
+            .attr("transform", `translate(${plotWidth - margin.right}, ${margin.top})`)
+
+        const axes = currentSVG
+            .append("g")
+            .attr("class", "axes")
+
+        const condensedValues = value.map(d => d.statusProgression).flat()
+        const extentYAxis = d3.extent(condensedValues, d => d.daysTillDueDate)
+
+        const xScale = d3.scaleBand().domain([
+            "VB I",
+            "Tourenplanung",
+            "VB II",
+            "Termin",
+            "NB I",
+            "NB II",
+            "Fertigstellung",
+            "Prüfung",
+            "Freigabe",
+            "Versand",
+            "Rechnung",
+            "Zahlung"
+        ]).range([0, clientWidth - margin.left - margin.right]).padding(1).paddingOuter(0.25);
+        const yScale = d3.scaleLinear().domain([-100, 300]).range([plotHeight, 0])
+
+        yScale.clamp(true)
+
+        const xAxis = axes
+            .append("g")
+            .attr("class", "x axis")
+            .attr("transform", `translate(${margin.left}, ${plotHeight + margin.top})`)
+            .call(d3.axisBottom(xScale))
+
+
+        const yAxis = axes
+            .append("g")
+            .attr("class", "y axis")
+            .attr("transform",  `translate(${margin.left}, ${margin.top})`)
+            .call(d3.axisLeft(yScale))
+
+        const textXAxis = xAxis
+            .append("text")
+            .text("Step")
+            .attr("class", "axis-title")
+            .attr("transform",  `translate(${plotWidth / 2}, ${margin.bottom - 5})`)
+
+        const textYAxis = yAxis
+            .append("text")
+            .text("Days until due date of audit")
+            .attr("class", "axis-title")
+            .attr("transform",  `translate(${-40}, ${(plotHeight / 2)}) rotate(-90)`)
+
+        const colorForSteps = d3.scaleSequential(d3.interpolateRdYlGn).domain([0, stepsRaw.length])
+				const lineGenerator = d3.line()
+					.x(d => xScale(d.to))
+					.y(d => yScale(d.daysTillDueDate))
+					.curve(d3.curveMonotoneX)
+
+        const progression = canvas
+            .selectAll("g")
+            .data(value)
+            .enter()
+            .append("g")
+            .attr("class", "progression")
+							.append("path")
+							.attr("d", d => lineGenerator(d.statusProgression))
+
+        // const rectangles = rectGroups.selectAll("circle")
+        //     .data(d => d3.flatRollup(d[1], D => D.length, d => d.daysTillDueDate))
+        //     .enter()
+        //     .append("circle")
+        //     .attr("value", d => console.log(d))
+        //     .attr("cx", d => xScale(d[0]))
+        //     .attr("cy", d => yScale(d[1]))
+        //     .attr("r", d => d[2])
+    })
+
+</script>
+</body>
+</html>
