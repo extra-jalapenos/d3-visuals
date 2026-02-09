@@ -10,13 +10,13 @@
 <body>
 <script type="module">
     // for FULL view!
-    const width = document.documentElement.clientWidth
-    const height = document.documentElement.clientHeight
+    const clientWidth = document.documentElement.clientWidth
+    const clientHeight = document.documentElement.clientHeight
 
     const body = d3.select("body")
-        .attr("width", width)
-        .attr("height", height)
-        .attr("viewBox", `0, 0, ${width}, ${height}`)
+        .attr("width", clientWidth)
+        .attr("height", clientHeight)
+        .attr("viewBox", `0, 0, ${clientWidth}, ${clientHeight}`)
         .attr("preserveAspectRatio", "none")
 
     const worklogDataRaw = await d3.tsv("../02_audit_duedates/worklogs.txt")
@@ -184,15 +184,17 @@
     console.log(itemsPerAuditType)
 
     // visualize the relationship between "daysTillDueDate" and "daysTillNextStatus", and what the next status is
+    const margin = { top: 20, left: 80, bottom: 50, right: 30}
+    const plotHeight = (clientHeight / 2) - margin.top - margin.bottom
+    const plotWidth = clientWidth - margin.left - margin.right
     const svgs = d3.select("body").selectAll("svg")
         .data(itemsPerAuditType)
         .enter()
         .append("svg")
         .attr("id", d => d[0])
-        .attr("width", width)
-        .attr("height", height / 2)
+        .attr("width", clientWidth)
+        .attr("height", clientHeight / 2)
 
-    const margin = { top: 20, left: 40, bottom: 30, right: 20}
 
     svgs.each(function (datum) {
         const [key, value] = datum
@@ -203,6 +205,12 @@
             .attr("class", "canvas")
             .attr("transform", `translate(${margin.left}, ${margin.top})`)
 
+        const title = canvas
+            .append("text")
+            .attr("class", "title")
+            .text("Audit Type " + key.toUpperCase())
+            .attr("transform", `translate(${plotWidth}, ${margin.top})`)
+
         const axes = currentSVG
             .append("g")
             .attr("class", "axes")
@@ -211,13 +219,13 @@
         const extentYAxis = d3.extent(condensedValues, d => d.daysTillDueDate)
         const extentXAxis = d3.extent(condensedValues, d => d.daysTillNextStatus)
 
-        const xScale = d3.scaleLinear().domain([0, 300]).range([0, width - margin.left - margin.right])
-        const yScale = d3.scaleLinear().domain([0, 300]).range([(height / 2) - margin.top - margin.bottom, 0])
+        const xScale = d3.scaleLinear().domain([0, 300]).range([0, clientWidth - margin.left - margin.right])
+        const yScale = d3.scaleLinear().domain([0, 300]).range([plotHeight, 0])
 
         const xAxis = axes
             .append("g")
             .attr("class", "x axis")
-            .attr("transform", `translate(${margin.left}, ${height/2 - margin.bottom})`)
+            .attr("transform", `translate(${margin.left}, ${plotHeight + margin.top})`)
             .call(d3.axisBottom(xScale))
 
         const yAxis = axes
@@ -225,6 +233,18 @@
             .attr("class", "y axis")
             .attr("transform",  `translate(${margin.left}, ${margin.top})`)
             .call(d3.axisLeft(yScale))
+
+        const textXAxis = xAxis
+            .append("text")
+            .text("Days until next step")
+            .attr("class", "axis-title")
+            .attr("transform",  `translate(${plotWidth / 2}, ${margin.bottom - 5})`)
+
+        const textYAxis = yAxis
+            .append("text")
+            .text("Days until due date of audit")
+            .attr("class", "axis-title")
+            .attr("transform",  `translate(${-40}, ${(plotHeight / 2)}) rotate(-90)`)
     })
 
 </script>

@@ -8,4 +8,15 @@ html, body {
 
 text {
     fill: light-dark(black, white);
+    font-size: larger;
+}
+
+.title {
+    font-size: 1.5rem;
+    text-anchor: end;
+}
+
+.axis-title {
+    font-size: 1.5rem;
+    text-anchor: middle;
 }
