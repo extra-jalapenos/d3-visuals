@@ -230,8 +230,8 @@
             "Versand",
             "Rechnung",
             "Zahlung"
-        ]).range([0, plotWidth]).align(0.5);
-        const yScale = d3.scaleLinear().domain([-365, 365]).range([plotHeight, 0])
+        ]).range([0, clientWidth - margin.left - margin.right]).padding(1).paddingOuter(0.25);
+        const yScale = d3.scaleLinear().domain([-100, 300]).range([plotHeight, 0])
 
         yScale.clamp(true)
 
