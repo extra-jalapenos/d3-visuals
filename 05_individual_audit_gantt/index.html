@@ -230,7 +230,7 @@
             "Versand",
             "Rechnung",
             "Zahlung"
-        ]).range([0, clientWidth - margin.left - margin.right]).padding(1).paddingOuter(0.25);
+        ]).range([0, plotWidth]).padding(0.5).paddingOuter(0.25);
         const yScale = d3.scaleLinear().domain([-100, 300]).range([plotHeight, 0])
 
         yScale.clamp(true)
@@ -283,7 +283,7 @@
             .data(value => value.statusProgression)
             .enter()
             .append("circle")
-            .attr("cx", d => xScale(d.to) + bandStep / 2 - d3.randomNormal(0,0.5)() * horizontalSpread)
+            .attr("cx", d => xScale(d.to) + bandStep / 4 + d3.randomNormal(0,1)() * horizontalSpread)
             .attr("cy", d => yScale(d.daysTillDueDate))
             .attr("r", 1)
             .attr("opacity", 0.8)
