@@ -266,14 +266,30 @@
 					.y(d => yScale(d.daysTillDueDate))
 					.curve(d3.curveMonotoneX)
 
+        const bandStep = xScale.step()
         const progression = canvas
             .selectAll("g")
             .data(value)
             .enter()
             .append("g")
             .attr("class", "progression")
-							.append("path")
-							.attr("d", d => lineGenerator(d.statusProgression))
+                .append("path")
+                .attr("d", d => lineGenerator(d.statusProgression))
+
+        const horizontalSpread = xScale.bandwidth() * 0.25
+        const progressPoints = canvas
+            .selectAll("g.progression")
+            .selectAll("circle")
+            .data(value => value.statusProgression)
+            .enter()
+            .append("circle")
+            .attr("cx", d => xScale(d.to) + bandStep / 2 - d3.randomNormal(0,0.5)() * horizontalSpread)
+            .attr("cy", d => yScale(d.daysTillDueDate))
+            .attr("r", 1)
+            .attr("opacity", 0.8)
+            .attr("fill", d => colorForSteps(steps.get(d.to).id))
+
+            console.log()
 
         // const rectangles = rectGroups.selectAll("circle")
         //     .data(d => d3.flatRollup(d[1], D => D.length, d => d.daysTillDueDate))
