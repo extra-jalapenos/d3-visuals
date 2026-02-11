@@ -1,7 +1,13 @@
 export const calculateStatusProgression = async (worklogDataRaw, auditDueDateDataRaw) => {
     const stepsRaw = await d3.tsv("./steps.tsv")
     const steps = d3.index(stepsRaw.map(d => {
-        return { ...d, id: Number(d.id), stageId: Number(d.stageId), Punkte: parseFloat(d.Punkte) }
+        return {
+					...d,
+					id: Number(d.id),
+					stageId: Number(d.stageId),
+					Punkte: parseFloat(d.Punkte),
+					isHurdle: Boolean(d.isHurdle)
+				}
     }), d => d.stepName)
 
     // because my data is so old i'm gonna pretend that "TODAY" is the 10th of Feb 2023
@@ -50,7 +56,8 @@ export const calculateStatusProgression = async (worklogDataRaw, auditDueDateDat
         // this emulates the status calculation in the application itself
         // at least if I remember correctly
         const hurdleStepNames = [
-            "Tourenplanung", "VB II", "Termin", "NB I", "Fertigstellung", "Prüfung", "Freigabe", "Versand", "Rechnung", "Zahlung"
+            "Tourenplanung", "VB II", "Termin", "NB I", "Fertigstellung",
+						"Prüfung", "Freigabe", "Versand", "Rechnung", "Zahlung"
         ]
 
         const hurdleWorklogs = sorted.filter(worklog => hurdleStepNames.includes(worklog.workstep.stepName))
