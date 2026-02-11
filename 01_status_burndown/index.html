@@ -22,7 +22,7 @@
 <body>
 	<script type="module">
 
-	const statusMap = await d3.tsv("./steps.tsv")
+	const statusMap = await d3.tsv("../utils/steps.tsv")
 	const statusOrder = ["Beginn", "VB I", "Tourenplanung", "VB II", "Termin", "NB I", "NB II", "Fertigstellung", "Prüfung", "Freigabe", "Versand", "Rechnung", "Zahlung"]
 	const statusLookup = d3.index(statusMap, d => d.stepName)
 	// data needs to be in this directory
