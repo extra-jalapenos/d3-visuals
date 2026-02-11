@@ -29,7 +29,7 @@ export const calculateStatusProgression = async (worklogDataRaw, auditDueDateDat
         })
 
     // function to calculate a status progression out of a worklog array
-    const processLogs = (worklogArray) => {
+    const processLogs = (worklogArray, dueDate = null) => {
         // we sort by workstep id first and then by date
         // so should e.g. step 2 and 3 be done on the same date, we assume they were done in logical order
         const sorted = worklogArray
@@ -112,6 +112,10 @@ export const calculateStatusProgression = async (worklogDataRaw, auditDueDateDat
             if (index !== finalArray.length - 1) {
                 const daysTillNextStatus = Math.round((statusProgression[index+1].date - worklog.date) / (1000 * 24 * 60 * 60));
                 worklog["daysTillNextStatus"] = daysTillNextStatus;
+								if (dueDate) {
+									const daysTillDueDate = Math.round((dueDate - worklog.date) / (1000 * 24 * 60 * 60));
+									worklog["daysTillDueDate"] = daysTillDueDate;
+								}
             }
         })
 
