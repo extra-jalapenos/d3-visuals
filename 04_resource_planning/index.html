@@ -21,7 +21,7 @@
 
     const worklogDataRaw = await d3.tsv("../02_audit_duedates/worklogs.txt")
     const auditDataRaw = await d3.tsv("../02_audit_duedates/audits.txt")
-    const stepsRaw = await d3.tsv("../01_status_burndown/steps.tsv")
+    const stepsRaw = await d3.tsv("../utils/steps.tsv")
     const steps = d3.index(stepsRaw.map(d => {
         return { ...d, id: Number(d.id), stageId: Number(d.stageId), Punkte: parseFloat(d.Punkte) }
     }), d => d.stepName)
@@ -220,7 +220,7 @@
         const xAxis = axes
             .append("g")
             .attr("class", "x axis")
-            .attr("transform", `translate(${margin.left}, ${height/2 - margin.top - margin.bottom})`)
+            .attr("transform", `translate(${margin.left}, ${plotHeight})`)
             .call(d3.axisBottom(xScale))
 
         const yAxis = axes
@@ -252,25 +252,13 @@
             .attr("class", d => d[0])
             .attr("fill", d => colorForSteps(steps.get(d[0]).id))
 
-        const rectangles = rectGroups.selectAll("circle")
+        const circles = rectGroups.selectAll("circle")
             .data(d => d3.flatRollup(d[1], D => D.length, d => d.daysTillNextStatus, d => d.daysTillDueDate))
             .enter()
             .append("circle")
-            .attr("value", d => console.log(d))
+            .attr("r", 2)
             .attr("cx", d => xScale(d[0]))
             .attr("cy", d => yScale(d[1]))
-            .attr("r", d => d[2])
-
-        // add circles; the "from" is the color determinator
-        const points = canvas.selectAll("circle")
-            .data(condensedValues)
-            .enter()
-            .append("circle")
-            .attr("cx", d => xScale(d.daysTillNextStatus))
-            .attr("cy", d => yScale(d.daysTillDueDate))
-            .attr("r", 3)
-            .attr("opacity", 0.25)
-            .attr("fill", d => color(steps.get(d.from).id))
     })
 
 </script>
