@@ -17,3 +17,6 @@ text {
 	fill: none;
 	stroke: rgba(255, 255, 255, 0.05);
 }
+.axes text {
+	font-size: 12px;
+}

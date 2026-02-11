@@ -161,6 +161,7 @@
     // we want to limit the reference data to elements with last status being at least "Rechnung"
     const relevantEntries = Array.from(groupedByAuditId.entries()).filter(([key, value]) => {
         const hasDueDate = auditDueDates.has(key)
+        // if (key.toLowerCase().includes("eeg2009") === false) return false // only analyzing EEG 2009 for now
         if (!hasDueDate) return false
         if (["Rechnung", "Zahlung"].includes(value.currentStatus) === false) return false
         // let's filter for reference year >= 2020, too
@@ -231,14 +232,14 @@
             "Rechnung",
             "Zahlung"
         ]).range([0, plotWidth]).padding(0.5).paddingOuter(0.25);
-        const yScale = d3.scaleLinear().domain([-100, 300]).range([plotHeight, 0])
+        const yScale = d3.scaleLinear().domain([-100, 350]).range([plotHeight, 0])
 
         yScale.clamp(true)
 
         const xAxis = axes
             .append("g")
             .attr("class", "x axis")
-            .attr("transform", `translate(${margin.left}, ${plotHeight + margin.top})`)
+            .attr("transform", `translate(${margin.left}, ${margin.top + yScale(0)})`)
             .call(d3.axisBottom(xScale))
 
 
@@ -288,17 +289,6 @@
             .attr("r", 1)
             .attr("opacity", 0.8)
             .attr("fill", d => colorForSteps(steps.get(d.to).id))
-
-            console.log()
-
-        // const rectangles = rectGroups.selectAll("circle")
-        //     .data(d => d3.flatRollup(d[1], D => D.length, d => d.daysTillDueDate))
-        //     .enter()
-        //     .append("circle")
-        //     .attr("value", d => console.log(d))
-        //     .attr("cx", d => xScale(d[0]))
-        //     .attr("cy", d => yScale(d[1]))
-        //     .attr("r", d => d[2])
     })
 
 </script>
