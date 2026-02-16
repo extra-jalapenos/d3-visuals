@@ -30,7 +30,9 @@
     // replace with new Date() for true today
     const today = new Date(2023, 1, 10) // actually today: const today = new Date()
 
-    const auditDueDates = d3.index(auditDataRaw.map(d => {
+    const auditDueDates = d3.index(auditDataRaw
+        .filter(d => d.auditId.includes("eeg2009")) // this line filters exclusively for 2009 EEG, comment out for all types
+        .map(d => {
             const [day, month, year] = d.dueDateAudit.split(" ")[0].split(".")
             return {
                 auditId: d.auditId,
@@ -186,10 +188,11 @@
     const plotHeight = clientHeight / 2 - margin.bottom - margin.top
     const plotWidth = clientWidth - margin.left - margin.right
     // visualize the relationship between "daysTillDueDate" and "daysTillNextStatus", and what the next status is
-    const svgs = d3.select("body").selectAll("svg")
+    const svgs = d3.select("body").selectAll("svg.distribution")
         .data(itemsPerAuditType)
         .enter()
         .append("svg")
+        .attr("class", "distribution")
         .attr("id", d => d[0])
         .attr("width", clientWidth)
         .attr("height", plotHeight)
@@ -220,13 +223,13 @@
         const xAxis = axes
             .append("g")
             .attr("class", "x axis")
-            .attr("transform", `translate(${margin.left}, ${plotHeight})`)
+            .attr("transform", `translate(${margin.left}, ${yScale(0) + margin.top})`)
             .call(d3.axisBottom(xScale))
 
         const yAxis = axes
             .append("g")
             .attr("class", "y axis")
-            .attr("transform",  `translate(${margin.left}, ${margin.top})`)
+            .attr("transform",  `translate(${margin.left + xScale(0)}, ${margin.top})`)
             .call(d3.axisLeft(yScale))
 
         const textXAxis = xAxis
@@ -260,6 +263,68 @@
             .attr("cx", d => xScale(d[0]))
             .attr("cy", d => yScale(d[1]))
     })
+
+    // now we're gonna do the whole bunch of "how many hours do we actually have"
+    const renderAvailableResources = async () => {
+
+        const workschemesRaw = await d3.tsv("./workschemes.tsv")
+        const workschemes = workschemesRaw.map(d => {
+            const dateStringToDate = (dateString) => {
+                const [day, month, year] = dateString.split(".").map(digit => Number(digit))
+                console.log(new Date(year, month-1, day), day, month, year, dateString)
+                return new Date(year, month-1, day)
+            }
+            return {
+                Name: d.Name,
+                Team: d.Team,
+                Monday: parseFloat(d.Monday | 0) ,
+                Tuesday: parseFloat(d.Tuesday | 0),
+                Wednesday: parseFloat(d.Wednesday | 0),
+                Thursday: parseFloat(d.Thursday | 0),
+                Friday: parseFloat(d.Friday | 0),
+                Saturday: parseFloat(d.Saturday | 0),
+                Sunday: parseFloat(d.Sunday | 0),
+                validFrom: new Date(dateStringToDate(d.validFrom).setHours(0,0,0,0)),
+                validTo: !!d.validTo ? new Date(dateStringToDate(d.validTo).setHours(23,59,59,999)) : new Date(new Date().setHours(23,59,59,999)) // if it's null set to today
+            }
+        })
+
+        const timeframe = [d3.min(workschemes, d => d.validFrom), d3.max(workschemes, d => d.validTo)]
+
+        // let's make a canvas first
+        const svg = d3.select("body")
+            .append("svg")
+            .attr("id", "available-resources")
+            .attr("width", clientWidth)
+            .attr("height", clientHeight)
+
+        // we want a graph spanning the entire frame of worklog schemes info
+        // const xScaleAvailableResources = d3.scaleTime().domain
+
+        const canvasResources = svg
+            .append("g")
+            .attr("class", "canvas")
+            .attr("width", clientWidth - margin.left - margin.right)
+            .attr("height", plotHeight)
+            .attr("transform", `translate(${margin.left}, ${margin.top})`)
+
+        const axesGroup = svg
+            .append("g")
+            .attr("class", "axes")
+
+        const xScale = d3.scaleTime().domain(timeframe).range([0, clientWidth - margin.left - margin.right])
+
+        axesGroup
+            .append("g")
+            .attr("class", "x axis")
+            .call(d3.axisBottom(xScale))
+
+        const workersWorkingOnDate = (date) => workschemes.filter(workscheme => workscheme.validFrom <= date && workscheme.validTo >= date)
+
+        console.log(workschemes)
+    }
+
+    await renderAvailableResources()
 
 </script>
 </body>
