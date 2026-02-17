@@ -20,3 +20,15 @@ text {
     font-size: 1.5rem;
     text-anchor: middle;
 }
+
+.Flamingo {
+    fill: hotpink
+}
+
+.Chamäleon {
+    fill: greenyellow
+}
+
+.Kugelfisch {
+    fill: steelblue;
+}
