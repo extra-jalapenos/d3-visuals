@@ -317,7 +317,7 @@
             .attr("transform", `translate(${margin.left}, ${margin.top})`)
 
         // constructing a time scale we will shoehorn into weeks at will
-        const minDate = new Date(2017, 0, 1)
+        const minDate = new Date(2021, 11, 1)
         const maxDate = new Date()
 
         const mode = "timeMonday"
@@ -391,6 +391,8 @@
                 .x(d => xScale(d[0]))
                 .y0(d => yScale(d[1].get(teamName).startStack))
                 .y1(d =>yScale(d[1].get(teamName).endStack))
+                .curve(d3.curveStep)
+
             d3.select(this).datum(hoursByWeekAndTeam).attr("d", d => areaGenerator(d))
         })
     }
