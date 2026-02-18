@@ -391,6 +391,7 @@
             const movingHolidays = yearArr.map(year => movingHolidaysForYear(year))
             return [...fixedHolidays.flat(), ...movingHolidays.flat()]
         }
+        
         const yearsInTimeframe = (minDate, maxDate) => {
             const startYear = minDate.getFullYear()
             const endYear = maxDate.getFullYear()

@@ -1,6 +1,18 @@
 name	Monday	Tuesday	Wednesday	Thursday	Friday	Saturday	Sunday	validFrom	validTo	Team
 Rebecca	8	8	-	8	8	-	-	01.03.2018	30.11.2024	Chamäleon
 Kathi	8	8	8	8	8	-	-	01.03.2020		Chamäleon
+Birgit	8	8	8	8	8	-	-	01.03.2020	31.12.2024	TeamBirgit
+Kathi B.	8	8	8	8	8	-	-	01.06.2016	15.03.2025	Panda
+Chicken	8	8	8	8	-	-	-	01.03.2020		Panda
+Arnold	8	8	8	8	8	-	-	01.03.2017	15.12.2025	Panda
 Robert	8	8	8	8	8	-	-	01.10.2017	31.10.2022	Flamingo
+Richard	8	8	8	8	8	-	-	01.10.2017	31.10.2022	Flamingo
+Thorsten	8	8	8	8	8	-	-	01.10.2017	31.10.2022	Flamingo
+Nina	8	8	8	8	8	-	-	01.10.2017	31.10.2022	Flamingo
+Harald	8	8	8	8	8	-	-	01.10.2017		Pinguin
+Alex	8	8	8	8	8	-	-	01.10.2017		Pinguin
+Anette	8	8	8	8	8	-	-	01.10.2017		Pinguin
+Philipp	8	8	8	8	8	-	-	01.10.2017		Pinguin
+Wutzi	8	8	8	8	8	-	-	01.10.2017		Pinguin
 Robert	7.4	7.4	7.4	7.4	7.4	-	-	01.11.2022		Hummer
 Rebecca	6.4	6.4	6.4	6.4	6.4			01.12.2024		Kugelfisch
