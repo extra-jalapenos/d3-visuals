@@ -268,15 +268,31 @@
     // now we're gonna do the whole bunch of "how many hours do we actually have"
     const renderAvailableResources = async () => {
 
+        const dateStringToDate = (dateString) => {
+            const [day, month, year] = dateString.split(".").map(digit => Number(digit))
+            return new Date(year, month-1, day)
+        }
+
         const workschemesRaw = await d3.tsv("./workschemes.tsv")
+        const absencesRaw = await d3.tsv("./absences.tsv")
+        const absences = absencesRaw.map(absence => {
+            return {
+                ...absence,
+                from: dateStringToDate(absence.from),
+                to: dateStringToDate(absence.to),
+            }
+        })
+        const absencesPerPerson = d3.group(absences, d => d.name)
+
+        const personAbsentOnDate = (name, date) => {
+            if (absencesPerPerson.has(name) === false) return false
+            return absencesPerPerson.get(name).filter(absence => absence.from <= date && absence.to >= date).length > 0
+        }
+
         const teams = d3.union(workschemesRaw.map(d => d.Team))
         const workschemes = workschemesRaw.map(d => {
-            const dateStringToDate = (dateString) => {
-                const [day, month, year] = dateString.split(".").map(digit => Number(digit))
-                return new Date(year, month-1, day)
-            }
             return {
-                Name: d.Name,
+                name: d.name,
                 Team: d.Team,
                 Monday: parseFloat(d.Monday | 0),
                 Tuesday: parseFloat(d.Tuesday | 0),
@@ -326,13 +342,19 @@
             .domain([minDate, maxDate])
             .range([0, clientWidth - margin.left - margin.right])
 
+        // range for colors is 0,1
+        const color = d3.scaleSequential(d3.interpolateViridis).domain([0, teams.size-1]);
+
         const workersWorkingOnDate = (date) => workschemes.filter(workscheme => workscheme.validFrom <= date && workscheme.validTo >= date)
 
         const getWorkerHoursForDate = (date) => {
             const dayName = date.toLocaleDateString("en-GB", { weekday: "long" })
+            const absentPeople = absen
             return workersWorkingOnDate(date).map(worker => {
-                return { date, name: worker.Name, dayName, hours: worker[dayName], team: worker.Team }
+                return { date, name: worker.name, dayName, hours: worker[dayName], team: worker.Team }
             }).filter(worker => worker.hours > 0)
+
+
         }
 
         const getWorkerHoursForTimeframe = (startDate, endDate) => {
@@ -386,14 +408,14 @@
             .attr("class", d => d)
                 .append("path")
 
-        paths.each(function (teamName) {
+        paths.each(function (teamName, index) {
             const areaGenerator = d3.area()
                 .x(d => xScale(d[0]))
                 .y0(d => yScale(d[1].get(teamName).startStack))
                 .y1(d =>yScale(d[1].get(teamName).endStack))
                 .curve(d3.curveStep)
 
-            d3.select(this).datum(hoursByWeekAndTeam).attr("d", d => areaGenerator(d))
+            d3.select(this).datum(hoursByWeekAndTeam).attr("d", d => areaGenerator(d)).attr("fill", color(index))
         })
     }
 
