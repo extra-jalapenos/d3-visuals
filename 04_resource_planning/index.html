@@ -389,15 +389,21 @@
             }
 
             const movingHolidays = yearArr.map(year => movingHolidaysForYear(year))
-            console.log(movingHolidays)
             return [...fixedHolidays.flat(), ...movingHolidays.flat()]
         }
+        const yearsInTimeframe = (minDate, maxDate) => {
+            const startYear = minDate.getFullYear()
+            const endYear = maxDate.getFullYear()
+            return Array(endYear - startYear + 1).fill(0).map((_, i) => startYear + i)
+        }
+        const holidaysInTimeframe = d3.index(generateHolidaysForYears(yearsInTimeframe(minDate, maxDate)).sort((a, b) => a - b), d => d)
 
         const workersWorkingOnDate = (date) => workschemes
             .filter(workscheme => workscheme.validFrom <= date && workscheme.validTo >= date)
             .filter(workscheme => personAbsentOnDate(workscheme.name, date) === false)             // remove all that are absent
 
         const getWorkerHoursForDate = (date) => {
+            if (holidaysInTimeframe.has(date)) return []
             const dayName = date.toLocaleDateString("en-GB", { weekday: "long" })
 
             const contractHours = workersWorkingOnDate(date)
