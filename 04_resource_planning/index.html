@@ -266,7 +266,9 @@
     })
 
     // now we're gonna do the whole bunch of "how many hours do we actually have"
-    const renderAvailableResources = async () => {
+    const renderAvailableResources = async (startDate, endDate) => {
+
+        if (!startDate | !endDate) throw Error("no timeframe given")
 
         const dateStringToDate = (dateString) => {
             const [day, month, year] = dateString.split(".").map(digit => Number(digit))
@@ -309,7 +311,8 @@
             }
         })
 
-        const timeframe = [d3.min(workschemes, d => d.validFrom), d3.max(workschemes, d => d.validTo)]
+        // const timeframe = [d3.min(workschemes, d => d.validFrom), d3.max(workschemes, d => d.validTo)] // alternate approach to just show the entire breadth of worker hours
+        const timeframe = [startDate, endDate]
 
         // let's make a canvas first
         const svg = d3.select("body")
@@ -333,14 +336,15 @@
             .attr("class", "axes")
             .attr("transform", `translate(${margin.left}, ${margin.top})`)
 
-        // constructing a time scale we will shoehorn into weeks at will
+        // constructing a time scale we will shoehorn into weeks / months at will
         const minDate = new Date(2021, 11, 1)
         const maxDate = new Date()
 
-        const mode = "timeMonday"
-        const weeks = d3[mode].every(1).range(minDate, maxDate)
+        const mode = "timeMonday" // timeDay for daily resolution, timeMonday for weeks, timeMonth for months
+        const timeSlots = d3[mode].every(3).range(startDate, endDate)
+
         const xScale = d3.scaleTime()
-            .domain([minDate, maxDate])
+            .domain([startDate, endDate])
             .range([0, clientWidth - margin.left - margin.right])
 
         // range for colors is 0,1
@@ -355,7 +359,7 @@
                     new Date(year, 4, 1), // Tag der Arbeit
                     new Date(year, 7, 15), // Mariä Himmelfahrt
                     new Date(year, 9, 3), // Tag der dt. Einheit
-                     new Date(year, 10, 1), // Allerheiligen
+                    new Date(year, 10, 1), // Allerheiligen
                     new Date(year, 11, 25), // 1. Weihnachtsfeiertag
                     new Date(year, 11, 26), // 2. Weihnachtsfeiertag
                 ]
@@ -391,7 +395,7 @@
             const movingHolidays = yearArr.map(year => movingHolidaysForYear(year))
             return [...fixedHolidays.flat(), ...movingHolidays.flat()]
         }
-        
+
         const yearsInTimeframe = (minDate, maxDate) => {
             const startYear = minDate.getFullYear()
             const endYear = maxDate.getFullYear()
@@ -426,10 +430,10 @@
             .value(([, item], key) => item ? item : 0)
 
         let maxResources = 0
-        const hoursByWeekAndTeam = weeks
+        const hoursByWeekAndTeam = timeSlots
             .slice(0, -1)
-            .map((week, index) => {
-                const individualHours = getWorkerHoursForTimeframe(week, new Date(weeks[index+1]-1))
+            .map((timeSlot, index) => {
+                const individualHours = getWorkerHoursForTimeframe(timeSlot, new Date(timeSlots[index+1]-1))
                 const groupedByTeam = d3.rollup(individualHours, D => d3.sum(D.map(d => d.hours)), d => d.team)
                 let runningSum = 0
                 for (const team of teams) {
@@ -443,7 +447,7 @@
                 }
                 if (maxResources < runningSum)
                     maxResources = runningSum
-                return [ week, groupedByTeam]
+                return [ timeSlot, groupedByTeam]
             })
 
         const xAxis = axesGroup
@@ -476,8 +480,8 @@
             d3.select(this).datum(hoursByWeekAndTeam).attr("d", d => areaGenerator(d)).attr("fill", color(index))
         })
     }
-
-    await renderAvailableResources()
+    const currentYear = new Date().getFullYear()
+    await renderAvailableResources(new Date(currentYear - 1, 0, 1), new Date(currentYear + 1, 11, 31))
 
 </script>
 </body>
