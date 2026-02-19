@@ -5,10 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Resource Planning</title>
     <link rel="stylesheet" href="base.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+    <script type="module" src="./index.js"></script>
 </head>
 <body>
 <script type="module">
+    import { loadSteps } from "../00_constants/steps.js"
+    import { processLogs } from "../00_constants/auditStatusProgression.js"
+    import { generateHolidaysForYears } from "../00_constants/holidays.js"
+    
     // for FULL view!
     const clientWidth = document.documentElement.clientWidth
     const clientHeight = document.documentElement.clientHeight
@@ -21,11 +25,7 @@
 
     const worklogDataRaw = await d3.tsv("../02_audit_duedates/worklogs.txt")
     const auditDataRaw = await d3.tsv("../02_audit_duedates/audits.txt")
-    const stepsRaw = await d3.tsv("../utils/steps.tsv")
-    const steps = d3.index(stepsRaw.map(d => {
-        return { ...d, id: Number(d.id), stageId: Number(d.stageId), Punkte: parseFloat(d.Punkte) }
-    }), d => d.stepName)
-
+    const steps = await loadSteps()
     // because my data is so old i'm gonna pretend that "TODAY" is the 10th of Feb 2023
     // replace with new Date() for true today
     const today = new Date(2023, 1, 10) // actually today: const today = new Date()
@@ -52,113 +52,8 @@
             }
         })
 
-    // we have the problem of seasonal work -- if we assume e.g. that audits are done 6 weeks prior to due date, we'll have a spike of "audits to do" for all 800 clients.
-    // to circumvent this, we'll analyse the past, assuming that humans will human; we will render past data in a form that allows us to get an answer to the question:
-    // "across all past audits of type EEG 2009, that were progressed to VB II 12 weeks out from due date, when did the progression to "audit" take place?"
-    // there will be a distribution of some kind which we will then sample for the current audits to predict when the audit will take place.
 
-    // function to calculate a status progression out of a worklog array
-    const processLogs = (worklogArray) => {
-        // we sort by workstep id first and then by date
-        // so should e.g. step 2 and 3 be done on the same date, we assume they were done in logical order
-        const sorted = worklogArray
-            .filter(d => d.doneAt !== null && d.doneAt <= today) // get rid of all steps with unknown doneAt date
-            .sort((a, b) => a.workstep.id - b.workstep.id)
-            .sort((a, b) => a.doneAt - b.doneAt)
-
-        if (sorted.length === 0) return []
-
-        // make a map of the earliest occurences of all listed steps
-        const worklogMap = new d3.rollup(sorted,
-            D => d3.min(D.map(d => d.doneAt)),
-            d => d.workstep.stepName
-        )
-
-        // define hurdles == hurdles are steps after which the status will not be moved back
-        // so e.g. even when there is an instance of "NB I" done after "Fertigstellung", it will have no effect on the status progression
-        // this emulates the status calculation in the application itself
-        // at least if I remember correctly
-        const hurdleStepNames = [
-            "Tourenplanung", "VB II", "Termin", "NB I", "Fertigstellung", "Prüfung", "Freigabe", "Versand", "Rechnung", "Zahlung"
-        ]
-
-        const hurdleWorklogs = sorted.filter(worklog => hurdleStepNames.includes(worklog.workstep.stepName))
-
-        // loop through and increase date if below previous
-        let previousDate = null
-        let cleanedInconsistentTimeline = false
-        const timeline = new d3.InternMap(hurdleStepNames.filter(hurdleStepName => worklogMap.has(hurdleStepName)) // relevantHurdles in order
-            .map(hurdleStepName => {
-                if (worklogMap.get(hurdleStepName) > previousDate) {
-                    previousDate = worklogMap.get(hurdleStepName)
-                } else if (worklogMap.get(hurdleStepName) < previousDate) {
-                    cleanedInconsistentTimeline = true
-                }
-                return [hurdleStepName, previousDate]
-            }))
-
-        // everything else is just contacting the client
-        const contactWorklogs = sorted.filter(worklog => hurdleStepNames.includes(worklog.workstep.stepName) === false)
-
-        // get VB Is: before Tourenplanung
-        const VBIMatches = contactWorklogs.filter(worklog => worklog.doneAt <= worklogMap.get("Tourenplanung"))
-        if (VBIMatches.length) {
-            timeline.set("VB I", d3.min(VBIMatches, d => d.doneAt))
-        }
-
-        // VB I done between set audit date and audit counts as VB II
-        const VBIIMatches = contactWorklogs.filter(worklog => worklog.date >= worklogMap.get("Tourenplanung") &&  worklog.date <= worklogMap.get("Termin"))
-        if (VBIIMatches.length) {
-            const earliestMatch = d3.min(VBIIMatches, d => d.doneAt)
-            if (worklogMap.has("VB II")) {
-                timeline.set("VB II", d3.min([worklogMap.get("VB II"), earliestMatch]))
-            } else {
-                timeline.set("VB II", earliestMatch)
-            }
-        }
-
-        const NBIIMatches = contactWorklogs.filter(worklog => worklog.date >= worklogMap.get("NB I") && worklog.date <= worklogMap.get("Fertigstellung"))
-        if (NBIIMatches.length) {
-            timeline.set("NB II", d3.min(NBIIMatches, d => d.date))
-        }
-
-        // we're not sorting anything. we're frankensteining this together
-        const finalArray = 	[
-            "VB I",
-            "Tourenplanung",
-            "VB II",
-            "Termin",
-            "NB I",
-            "NB II",
-            "Fertigstellung",
-            "Prüfung",
-            "Freigabe",
-            "Versand",
-            "Rechnung",
-            "Zahlung"
-        ].map(stepName => [stepName, timeline.get(stepName)])
-        .filter(stepAndDateTuple => !!stepAndDateTuple[1])
-
-        let from = "Beginn"
-        const statusProgression = finalArray.map(worklog => {
-            const [stepName, doneAt] = worklog
-            const returnObj = { from, to: stepName, date: doneAt }
-            from = stepName
-            return returnObj
-        })
-
-        statusProgression.forEach((worklog, index) => {
-            if (index !== finalArray.length - 1) {
-                const daysTillNextStatus = Math.round((statusProgression[index+1].date - worklog.date) / (1000 * 24 * 60 * 60));
-                worklog["daysTillNextStatus"] = daysTillNextStatus;
-            }
-        })
-
-        const completeProgression = finalArray.length === 14
-        return { statusProgression, completeProgression, worklogArray: finalArray, cleanedInconsistentTimeline, currentStatus: statusProgression[statusProgression.length - 1]?.to }
-    }
-
-    const groupedByAuditId = d3.rollup(worklogData, D => processLogs(D), d => d.auditId)
+    const groupedByAuditId = d3.rollup(worklogData, D => processLogs(D, today), d => d.auditId)
 
     // we want to limit the reference data to elements with last status being at least "Rechnung"
     const relevantEntries = Array.from(groupedByAuditId.entries()).filter(([key, value]) => {
@@ -245,7 +140,7 @@
             .attr("class", "axis-title")
             .attr("transform",  `translate(${-40}, ${(plotHeight / 2)}) rotate(-90)`)
 
-        const colorForSteps = d3.scaleSequential(d3.interpolateRdYlGn).domain([0, stepsRaw.length])
+        const colorForSteps = d3.scaleSequential(d3.interpolateRdYlGn).domain([0, steps.size-1])
         const groupByStepFrom = d3.rollup(condensedValues, D => D, d => d.from)
 
         const rectGroups = canvas
@@ -275,8 +170,8 @@
             return new Date(year, month-1, day)
         }
 
-        const workschemesRaw = await d3.tsv("./workschemes.tsv")
-        const absencesRaw = await d3.tsv("./absences.tsv")
+        const workschemesRaw = await d3.tsv("./data/workschemes.tsv")
+        const absencesRaw = await d3.tsv("./data/absences.tsv")
         const absences = absencesRaw.map(absence => {
             return {
                 ...absence,
@@ -349,52 +244,6 @@
 
         // range for colors is 0,1
         const color = d3.scaleSequential(d3.interpolateViridis).domain([0, teams.size-1]);
-
-        const generateHolidaysForYears = (yearArr = [new Date().getFullYear()]) => {
-            // first, the fixed dates
-            const fixedHolidays = yearArr.map(year => {
-                return [
-                    new Date(year, 0, 1), // Neujahr
-                    new Date(year, 0, 6), // Hl. 3 Könige
-                    new Date(year, 4, 1), // Tag der Arbeit
-                    new Date(year, 7, 15), // Mariä Himmelfahrt
-                    new Date(year, 9, 3), // Tag der dt. Einheit
-                    new Date(year, 10, 1), // Allerheiligen
-                    new Date(year, 11, 25), // 1. Weihnachtsfeiertag
-                    new Date(year, 11, 26), // 2. Weihnachtsfeiertag
-                ]
-            })
-
-            const movingHolidaysForYear = (year) => {
-                const f = Math.floor,
-                // Golden Number - 1
-                G = year % 19,
-                C = f(year / 100),
-                // related to Epact
-                H = (C - f(C / 4) - f((8 * C + 13)/25) + 19 * G + 15) % 30,
-                // number of days from 21 March to the Paschal full moon
-                I = H - f(H/28) * (1 - f(29/(H + 1)) * f((21-G)/11)),
-                // weekday for the Paschal full moon
-                J = (year + f(year / 4) + I + 2 - C + f(C / 4)) % 7,
-                // number of days from 21 March to the Sunday on or before the Paschal full moon
-                L = I - J,
-                month = 3 + f((L + 40)/44),
-                day = L + 28 - 31 * f(month / 4);
-	            return [
-                        // new Date(year, month-1, day - 3), // Gründonnerstag
-                        new Date(year, month-1, day - 2), // Karfreitag
-                        new Date(year, month-1, day), // Ostersonntag
-                        new Date(year, month-1, day + 1), // Ostermontag
-                        new Date(year, month-1, day + 39), // Christi Himmelfahrt
-                        new Date(year, month-1, day + 49), // Pfingstsonntag
-                        new Date(year, month-1, day + 50), // Pfingstmontag
-                        new Date(year, month-1, day + 60) // Fronleichnam
-                    ]
-            }
-
-            const movingHolidays = yearArr.map(year => movingHolidaysForYear(year))
-            return [...fixedHolidays.flat(), ...movingHolidays.flat()]
-        }
 
         const yearsInTimeframe = (minDate, maxDate) => {
             const startYear = minDate.getFullYear()
