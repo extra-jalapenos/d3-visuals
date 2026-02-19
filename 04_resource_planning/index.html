@@ -12,7 +12,9 @@
     import { loadSteps } from "../00_constants/steps.js"
     import { processLogs } from "../00_constants/auditStatusProgression.js"
     import { generateHolidaysForYears } from "../00_constants/holidays.js"
-    
+    import { indexAuditDueDates } from "../00_constants/auditDueDate.js"
+    import { cleanWorklogData } from "../00_constants/worklog.js"
+
     // for FULL view!
     const clientWidth = document.documentElement.clientWidth
     const clientHeight = document.documentElement.clientHeight
@@ -30,28 +32,14 @@
     // replace with new Date() for true today
     const today = new Date(2023, 1, 10) // actually today: const today = new Date()
 
-    const auditDueDates = d3.index(auditDataRaw
-        .filter(d => d.auditId.includes("eeg2009")) // this line filters exclusively for 2009 EEG, comment out for all types
-        .map(d => {
-            const [day, month, year] = d.dueDateAudit.split(" ")[0].split(".")
-            return {
-                auditId: d.auditId,
-                dueDate: isNaN(year) === false ? new Date(year, month-1, day) : null
-            }
-        })
-        .filter(d => d.dueDate !== null)
-        , d => d.auditId)
+    const auditDueDates = indexAuditDueDates(auditDataRaw.filter(d => d.auditId.includes("eeg2009")))
 
-    const worklogData = worklogDataRaw
-        .map(d => {
-            const [day, month, year] = d.doneAt.split(" ")[0].split(".")
-            return {
-                ...d,
-                workstep: steps.get(d.workstep),
-                doneAt: isNaN(year) === false ? new Date(year, month-1, day) : null
-            }
-        })
-
+    const worklogData = cleanWorklogData(worklogDataRaw.map(d => {
+        return {
+            ...d,
+            workstep: steps.get(d.workstep)
+        }
+    }))
 
     const groupedByAuditId = d3.rollup(worklogData, D => processLogs(D, today), d => d.auditId)
 
