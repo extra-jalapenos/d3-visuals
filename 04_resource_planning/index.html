@@ -299,22 +299,25 @@
             .attr("class", "y axis")
             .call(d3.axisLeft(yScale))
 
-
-        const paths = canvas.selectAll("g")
+        const teamGroups = canvas.selectAll("g")
             .data(teams)
             .enter()
             .append("g")
             .attr("class", d => d)
-                .append("path")
 
-        paths.each(function (teamName, index) {
-            const areaGenerator = d3.area()
+        teamGroups.each(function (teamName, index) {
+            const areaGenerator = d3.area() 
                 .x(d => xScale(d[0]))
                 .y0(d => yScale(d[1].get(teamName).startStack))
                 .y1(d =>yScale(d[1].get(teamName).endStack))
                 .curve(d3.curveStep)
 
-            d3.select(this).datum(hoursByWeekAndTeam).attr("d", d => areaGenerator(d)).attr("fill", color(index))
+            d3.select(this)
+                .append("path")
+                .attr("class", "past")
+                .datum(hoursByWeekAndTeam)
+                .attr("d", d => areaGenerator(d))
+                .attr("fill", color(index))
         })
     }
     const currentYear = new Date().getFullYear()
