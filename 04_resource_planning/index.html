@@ -11,9 +11,9 @@
 <script type="module">
     import { loadSteps } from "../00_constants/steps.js"
     import { processLogs } from "../00_constants/auditStatusProgression.js"
-    import { generateHolidaysForYears } from "../00_constants/holidays.js"
     import { indexAuditDueDates } from "../00_constants/auditDueDate.js"
     import { cleanWorklogData } from "../00_constants/worklog.js"
+    import { teams, getWorkerHoursForTimeframe } from "./estimated-resources.js"
 
     // for FULL view!
     const clientWidth = document.documentElement.clientWidth
@@ -153,46 +153,6 @@
 
         if (!startDate | !endDate) throw Error("no timeframe given")
 
-        const dateStringToDate = (dateString) => {
-            const [day, month, year] = dateString.split(".").map(digit => Number(digit))
-            return new Date(year, month-1, day)
-        }
-
-        const workschemesRaw = await d3.tsv("./data/workschemes.tsv")
-        const absencesRaw = await d3.tsv("./data/absences.tsv")
-        const absences = absencesRaw.map(absence => {
-            return {
-                ...absence,
-                from: dateStringToDate(absence.from),
-                to: dateStringToDate(absence.to),
-            }
-        })
-        const absencesPerPerson = d3.group(absences, d => d.name)
-
-        const personAbsentOnDate = (name, date) => {
-            if (!date) throw Error("invalid date")
-            if (absencesPerPerson.has(name) === false) return false
-            return absencesPerPerson.get(name).filter(absence => absence.from <= date && absence.to >= date).length > 0
-        }
-
-        const teams = d3.union(workschemesRaw.map(d => d.Team))
-        const workschemes = workschemesRaw.map(d => {
-            return {
-                name: d.name,
-                Team: d.Team,
-                Monday: parseFloat(d.Monday | 0),
-                Tuesday: parseFloat(d.Tuesday | 0),
-                Wednesday: parseFloat(d.Wednesday | 0),
-                Thursday: parseFloat(d.Thursday | 0),
-                Friday: parseFloat(d.Friday | 0),
-                Saturday: parseFloat(d.Saturday | 0),
-                Sunday: parseFloat(d.Sunday | 0),
-                validFrom: new Date(dateStringToDate(d.validFrom).setHours(0,0,0,0)),
-                validTo: !!d.validTo ?
-                    new Date(dateStringToDate(d.validTo).setHours(23,59,59,999))
-                    : new Date(new Date().setHours(23,59,59,999)) // if it's null set to today
-            }
-        })
 
         // const timeframe = [d3.min(workschemes, d => d.validFrom), d3.max(workschemes, d => d.validTo)] // alternate approach to just show the entire breadth of worker hours
         const timeframe = [startDate, endDate]
@@ -203,9 +163,6 @@
             .attr("id", "available-resources")
             .attr("width", clientWidth)
             .attr("height", clientHeight / 2)
-
-        // we want a graph spanning the entire frame of worklog schemes info
-        // const xScaleAvailableResources = d3.scaleTime().domain
 
         const canvas = svg
             .append("g")
@@ -219,62 +176,30 @@
             .attr("class", "axes")
             .attr("transform", `translate(${margin.left}, ${margin.top})`)
 
-        // constructing a time scale we will shoehorn into weeks / months at will
-        const minDate = new Date(2021, 11, 1)
-        const maxDate = new Date()
+        const mode = "timeMonth" // timeDay for daily resolution, timeMonday for weeks, timeMonth for months
+        const timeSlots = d3[mode].every(1).range(startDate, endDate)
 
-        const mode = "timeMonday" // timeDay for daily resolution, timeMonday for weeks, timeMonth for months
-        const timeSlots = d3[mode].every(3).range(startDate, endDate)
+        const test = d3.scaleThreshold(timeframe, [...timeSlots, endDate]);
+        console.log(test(new Date(2025, 1, 4)))
+        console.log(test(endDate), endDate)
 
         const xScale = d3.scaleTime()
             .domain([startDate, endDate])
             .range([0, clientWidth - margin.left - margin.right])
 
         // range for colors is 0,1
-        const color = d3.scaleSequential(d3.interpolateViridis).domain([0, teams.size-1]);
-
-        const yearsInTimeframe = (minDate, maxDate) => {
-            const startYear = minDate.getFullYear()
-            const endYear = maxDate.getFullYear()
-            return Array(endYear - startYear + 1).fill(0).map((_, i) => startYear + i)
-        }
-        const holidaysInTimeframe = d3.index(generateHolidaysForYears(yearsInTimeframe(minDate, maxDate)).sort((a, b) => a - b), d => d)
-
-        const workersWorkingOnDate = (date) => workschemes
-            .filter(workscheme => workscheme.validFrom <= date && workscheme.validTo >= date)
-            .filter(workscheme => personAbsentOnDate(workscheme.name, date) === false)             // remove all that are absent
-
-        const getWorkerHoursForDate = (date) => {
-            if (holidaysInTimeframe.has(date)) return []
-            const dayName = date.toLocaleDateString("en-GB", { weekday: "long" })
-
-            const contractHours = workersWorkingOnDate(date)
-                .map(worker => {
-                    return { date, name: worker.name, dayName, hours: worker[dayName], team: worker.Team }
-                }).filter(worker => worker.hours > 0)
-
-            return contractHours
-        }
-
-        const getWorkerHoursForTimeframe = (startDate, endDate) => {
-            const days = d3.timeDay.every(1).range(startDate, endDate)
-            return days.map(day => getWorkerHoursForDate(day)).filter(dayResult => dayResult.length > 0).flat()
-        }
-
-        const allWorklogs = getWorkerHoursForTimeframe(minDate, maxDate)
-        const stacking = d3.stack()
-            .keys(teams)
-            .value(([, item], key) => item ? item : 0)
+        const color = d3.scaleSequential(d3.interpolateViridis).domain([0, teams.size-1])
 
         let maxResources = 0
-        const hoursByWeekAndTeam = timeSlots
+        const hoursBySlotAndTeam = timeSlots
             .slice(0, -1)
             .map((timeSlot, index) => {
                 const individualHours = getWorkerHoursForTimeframe(timeSlot, new Date(timeSlots[index+1]-1))
+
                 const groupedByTeam = d3.rollup(individualHours, D => d3.sum(D.map(d => d.hours)), d => d.team)
                 let runningSum = 0
                 for (const team of teams) {
-                    if (groupedByTeam.has(team)){
+                    if (groupedByTeam.has(team)) {
                         const value = groupedByTeam.get(team)
                         groupedByTeam.set(team, { value, startStack: runningSum, endStack: runningSum + value })
                         runningSum += value
@@ -284,8 +209,10 @@
                 }
                 if (maxResources < runningSum)
                     maxResources = runningSum
+
                 return [ timeSlot, groupedByTeam]
             })
+
 
         const xAxis = axesGroup
             .append("g")
@@ -310,12 +237,12 @@
                 .x(d => xScale(d[0]))
                 .y0(d => yScale(d[1].get(teamName).startStack))
                 .y1(d =>yScale(d[1].get(teamName).endStack))
-                .curve(d3.curveStep)
-
+                .curve(d3.curveMonotoneX)
+            console.log(hoursBySlotAndTeam)
             d3.select(this)
                 .append("path")
                 .attr("class", "past")
-                .datum(hoursByWeekAndTeam)
+                .datum(hoursBySlotAndTeam)
                 .attr("d", d => areaGenerator(d))
                 .attr("fill", color(index))
         })
