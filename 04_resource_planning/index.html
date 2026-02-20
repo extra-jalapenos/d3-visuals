@@ -33,7 +33,7 @@
 
     // now we're gonna do the whole bunch of "how many hours do we actually have"
     const renderAvailableResources = async (startDate, endDate) => {
-
+        const today = new Date(2025, 11, 2)
         if (!startDate | !endDate) throw Error("no timeframe given")
 
         const typeOfViews = [ "Theoretical Resources", "Factual Resources", "Difference" ]
@@ -120,7 +120,7 @@
                 if (maxResources < runningSum)
                     maxResources = runningSum
 
-                return [ timeSlot, idealHoursGroupedByTeam, individualFactualHoursGroupedByTeam, individualDifferenceGroupedByTeam ]
+                return [ timeSlot, new Date(timeSlots[index+1]-1), idealHoursGroupedByTeam, individualFactualHoursGroupedByTeam, individualDifferenceGroupedByTeam ]
             })
 
 
@@ -149,16 +149,24 @@
             teamGroups.each(function (teamName, teamIndex) {
             const areaGenerator = d3.area()
                 .x(d => xScale(d[0]))
-                .y0(d => yScale(d[1 + typeIndex].get(teamName).startStack))
-                .y1(d =>yScale(d[1 + typeIndex].get(teamName).endStack))
+                .y0(d => yScale(d[2 + typeIndex].get(teamName).startStack))
+                .y1(d =>yScale(d[2 + typeIndex].get(teamName).endStack))
                 .curve(d3.curveStep)
 
-            d3.select(this)
-                .append("path")
-                .attr("class", "past")
-                .datum(hoursBySlotAndTeam)
-                .attr("d", d => areaGenerator(d))
+            d3.select(this).selectAll("rect")
+                .data(hoursBySlotAndTeam)
+                .enter()
+                .append("rect")
+                .attr("class", d => {
+                    if (d[1] < today) return "past"
+                    if (d[0] > today) return "future"
+                    return "current"
+                })
                 .attr("fill", color(teamIndex))
+                .attr("x", d => xScale(d[0]))
+                .attr("y", d => yScale(d[2 + typeIndex].get(teamName).endStack))
+                .attr("width", d => xScale(d[1]) - xScale(d[0]))
+                .attr("height", d => yScale(d[2 + typeIndex].get(teamName).startStack) - yScale(d[2 + typeIndex].get(teamName).endStack))
             })
         })
     }

@@ -20,3 +20,15 @@ text {
     font-size: 1.5rem;
     text-anchor: middle;
 }
+
+.past {
+    opacity: 1
+}
+
+.future {
+    opacity: 0.33;
+}
+
+.current {
+    opacity: 0.5;
+}
