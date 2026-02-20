@@ -2,7 +2,7 @@ console.log("d3", d3)
 
 // because my data is so old i'm gonna pretend that "TODAY" is the 10th of Feb 2023
 export const pastAuditWorklogAnalysis = async (today = new Date()) => {
-	const worklogDataRaw = await d3.tsv("../02_audit_duedates/worklogs.txt")
+	const worklogDataRaw = await d3.tsv("/00_constants/data/worklogs.txt")
     const auditDataRaw = await d3.tsv("../02_audit_duedates/audits.txt")
     const steps = await loadSteps()
 

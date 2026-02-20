@@ -5,7 +5,7 @@ export const loadSteps = async () => {
 				...d,
 				id: Number(d.id),
 				stageId: Number(d.stageId),
-				Punkte: Number(d.Punkte) * 1,
+				Punkte: isNaN(d.Punkte) ? 0 : Number(d.Punkte) * 1,
 				isHurdle: Boolean(d.isHurdle)
 			}
 		})

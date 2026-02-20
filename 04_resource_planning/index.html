@@ -15,6 +15,7 @@
     import { cleanWorklogData } from "../00_constants/worklog.js"
     import { teams, getWorkerHoursForTimeframe } from "./estimated-resources.js"
     import { fabricateWorkerHours } from "./fabricateResources.js"
+    import { getPointsByDate } from "./accumulatedPoints.js";
 
     // for FULL view!
     const clientWidth = document.documentElement.clientWidth
@@ -27,18 +28,17 @@
         .attr("preserveAspectRatio", "none")
 
 	// the canvas is clientSizing - margins
-	const margin = { top: 20, left: 40, bottom: 30, right: 30}
+	const margin = { top: 20, left: 50, bottom: 30, right: 50}
 	const plotHeight = clientHeight / 2 - margin.bottom - margin.top
 	const plotWidth = clientWidth - margin.left - margin.right
 
     // now we're gonna do the whole bunch of "how many hours do we actually have"
     const renderAvailableResources = async (startDate, endDate) => {
-        const today = new Date(2025, 11, 2)
+        // const today = new Date(2025, 11, 2)
         if (!startDate | !endDate) throw Error("no timeframe given")
 
-        const typeOfViews = [ "Theoretical Resources", "Factual Resources", "Difference" ]
+        const typeOfViews = [ "Theoretical Resources", "Factual Resources" ]
         // const timeframe = [d3.min(workschemes, d => d.validFrom), d3.max(workschemes, d => d.validTo)] // alternate approach to just show the entire breadth of worker hours
-        const timeframe = [startDate, endDate]
 
         // let's make a canvas first for each view
         const svg = d3.select("body").selectAll("svg")
@@ -120,7 +120,13 @@
                 if (maxResources < runningSum)
                     maxResources = runningSum
 
-                return [ timeSlot, new Date(timeSlots[index+1]-1), idealHoursGroupedByTeam, individualFactualHoursGroupedByTeam, individualDifferenceGroupedByTeam ]
+                return [
+                    timeSlot,
+                    new Date(timeSlots[index+1]-1),
+                    idealHoursGroupedByTeam,
+                    individualFactualHoursGroupedByTeam,
+                    individualDifferenceGroupedByTeam
+                ]
             })
 
 
@@ -132,10 +138,23 @@
 
         const yScale = d3.scaleLinear().domain([0, maxResources]).range([plotHeight, 0])
 
+        const points = await getPointsByDate(startTimeFrame, endTimeFrame, today)
+        const pointsByWeek = d3.rollup(points, D => d3.sum(D.map(d => d[1])), d => timeSlots.find(el => el >= d[0]))
+
+        const secondaryYScale = d3.scaleLinear().domain([0, d3.max(pointsByWeek, d => d[1])]).range([plotHeight, 0])
+        const lineGenerator = d3.line()
+            .x(d => xScale(d[0]))
+            .y(d => secondaryYScale(d[1]))
+            .curve(d3.curveStep)
+
         const yAxis = axesGroup.append("g")
             .attr("class", "y axis")
             .call(d3.axisLeft(yScale))
 
+        const secondaryYAxis = axesGroup.append("g")
+            .attr("class", "y axis")
+            .attr("transform", `translate(${plotWidth}, 0)`)
+            .call(d3.axisRight(secondaryYScale))
 
         svg.each(function (type, typeIndex) {
             const canvas = d3.select(this).select("g.canvas")
@@ -167,11 +186,48 @@
                 .attr("y", d => yScale(d[2 + typeIndex].get(teamName).endStack))
                 .attr("width", d => xScale(d[1]) - xScale(d[0]))
                 .attr("height", d => yScale(d[2 + typeIndex].get(teamName).startStack) - yScale(d[2 + typeIndex].get(teamName).endStack))
+
+            const circlesGroup = canvas.append("g")
+                .attr("class", "points")
+
+                const circles = circlesGroup.selectAll("circle")
+                    .data(pointsByWeek)
+                    .enter()
+                    .append("circle")
+                    .attr("cx", d => xScale(d[0]))
+                    .attr("cy", d => secondaryYScale(d[1]))
+                    .attr("r", 2)
             })
+
         })
+
+
+
+        const plotPoints = async () => {
+            const svg = body
+                .append("svg")
+                .attr("class", "points")
+                .attr("width", clientWidth)
+                .attr("height", clientHeight)
+
+            const canvas = svg
+                .append("g")
+                .attr("class", "canvas")
+                .attr("width", plotWidth)
+                .attr("height", plotHeight)
+                .attr("transform", `translate(${margin.left}, ${margin.top})`)
+
+            const SecondaryYScale = d3.scaleLinear([0, d3.max(points, d => d[1])], [plotHeight, 0])
+
+        }
+
+        await plotPoints()
     }
     const currentYear = new Date().getFullYear()
-    await renderAvailableResources(new Date(currentYear - 1, 0, 1), new Date(currentYear + 1, 11, 31))
+    const today = new Date(2024, 1, 10)
+    const startTimeFrame = new Date(2023, 0, 1), endTimeFrame = new Date(2024, 11, 31)
+
+    await renderAvailableResources(startTimeFrame, endTimeFrame)
 
 </script>
 </body>
