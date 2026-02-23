@@ -61,7 +61,7 @@
             .attr("class", "axes")
             .attr("transform", `translate(${margin.left}, ${margin.top})`)
 
-        const mode = "timeMonday" // timeDay for daily resolution, timeMonday for weeks, timeMonth for months
+        const mode = "timeWeek" // timeDay for daily resolution, timeMonday for weeks, timeMonth for months
         const timeSlots = d3[mode].every(1).range(startDate, endDate)
 
         const xScale = d3.scaleTime()
@@ -139,9 +139,10 @@
         const yScale = d3.scaleLinear().domain([0, maxResources]).range([plotHeight, 0])
 
         const points = await getPointsByDate(startTimeFrame, endTimeFrame, today)
-        const pointsByWeek = d3.rollup(points, D => d3.sum(D.map(d => d[1])), d => timeSlots.find(el => el >= d[0]))
+        console.log(points)
+        const pointsByTimeslot = d3.rollup(points, D => d3.sum(D.map(d => d[1])), d => timeSlots.find(el => el >= d[0]))
 
-        const secondaryYScale = d3.scaleLinear().domain([0, d3.max(pointsByWeek, d => d[1])]).range([plotHeight, 0])
+        const secondaryYScale = d3.scaleLinear().domain([0, d3.max(pointsByTimeslot, d => d[1])]).range([plotHeight, 0])
         const lineGenerator = d3.line()
             .x(d => xScale(d[0]))
             .y(d => secondaryYScale(d[1]))
@@ -191,12 +192,12 @@
                 .attr("class", "points")
 
                 const circles = circlesGroup.selectAll("circle")
-                    .data(pointsByWeek)
+                    .data(pointsByTimeslot)
                     .enter()
                     .append("circle")
                     .attr("cx", d => xScale(d[0]))
                     .attr("cy", d => secondaryYScale(d[1]))
-                    .attr("r", 2)
+                    .attr("r", 3)
             })
 
         })

@@ -33,6 +33,7 @@ text {
     opacity: 0.5;
 }
 
-.point {
-    fill: #ffffff22;
+circle {
+    fill: #ffffff;
+    stroke:  black;
 }
