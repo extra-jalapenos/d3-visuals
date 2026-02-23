@@ -61,7 +61,7 @@
             .attr("class", "axes")
             .attr("transform", `translate(${margin.left}, ${margin.top})`)
 
-        const mode = "timeMonth" // timeDay for daily resolution, timeMonday for weeks, timeMonth for months
+        const mode = "timeMonday" // timeDay for daily resolution, timeMonday for weeks, timeMonth for months
         const timeSlots = d3[mode].every(1).range(startDate, endDate)
 
         const xScale = d3.scaleTime()
@@ -76,7 +76,7 @@
             .slice(0, -1)
             .map((timeSlot, index) => {
                 const individualIdealHours = getWorkerHoursForTimeframe(timeSlot, new Date(timeSlots[index+1]-1))
-                const individualFactualHours = fabricateWorkerHours(timeSlot, new Date(timeSlots[index+1]-1))
+                const individualFactualHours = fabricateWorkerHours(timeSlot, new Date(timeSlots[index+1]-1), today)
 
                 const idealHoursGroupedByTeam = d3.rollup(individualIdealHours, D => d3.sum(D.map(d => d.hours)), d => d.team)
                 let runningSum = 0
@@ -201,8 +201,6 @@
 
         })
 
-
-
         const plotPoints = async () => {
             const svg = body
                 .append("svg")
@@ -224,9 +222,8 @@
         await plotPoints()
     }
     const currentYear = new Date().getFullYear()
-    const today = new Date(2024, 1, 10)
+    const today = new Date(2023, 7, 10)
     const startTimeFrame = new Date(2023, 0, 1), endTimeFrame = new Date(2024, 11, 31)
-
     await renderAvailableResources(startTimeFrame, endTimeFrame)
 
 </script>
